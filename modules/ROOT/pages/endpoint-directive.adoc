@@ -1,0 +1,32 @@
+= 8. Optional endpoint-targeting directive (`FROM ENDPOINT`)
+
+[NOTE]
+====
+An alternative to this is to extract that to a query param instead of changing AQL specs to make this possible; WIP.
+====
+
+== 8.1 Semantics
+
+* `FROM ENDPOINT p [ "node_1", "node_2", … ]` is a *federation-only, optional* directive. It selects the *node set* for the query. When present, the node set is exactly the listed endpoints; when *absent*, the node set comes from *localization* (xref:requirements.adoc#n4[N4]/xref:requirements.adoc#n10[N10]).
+* The directive is *orthogonal to patient resolution*. Per-node scope is *always* the resolved `ehr_id` (xref:requirements.adoc#n7[N7]/xref:requirements.adoc#n11[N11]). A *directed + subject* query means _"find this patient, but only in these systems."_ List members where the patient is `not-resolved` are simply *reported* in `meta.endpoints[]` (status `not-resolved`), not errored.
+* Endpoint identifiers in the directive MUST be the *stable registry identifiers* of Endpoints (xref:requirements.adoc#n19[N19]), *not* URLs. This keeps the client decoupled from physical addresses (which the registry owns, xref:addressing.adoc[§15]).
+* A coarser selector `ORGANISATION [ … ]` MAY be used; the gateway expands each organization to its Endpoints via the registry (an Organization manages 1..* Endpoints; each Endpoint has exactly one managing Organization, xref:requirements.adoc#n20[N20]).
+
+== 8.2 Directed clients and the transparency trade-off
+
+A client that uses `FROM ENDPOINT` has *deliberately opted out* of transparency (it now knows about nodes). For such clients, the Tier MAY also expose an *equivalent HTTP query parameter* (e.g. `?endpoint=node_1&…`) so a directed client need not embed the directive in AQL. Undirected clients - the default - never see any of this.
+
+== 8.3 Example (directed, with provenance columns)
+
+[source,sql]
+----
+SELECT
+  p/id  AS endpoint_id,
+  p/system_id AS system_id,
+  c/uid/value AS composition_id
+FROM ENDPOINT p [ "node_1", "node_2", "node_3" ]
+  CONTAINS EHR e CONTAINS COMPOSITION c
+WHERE e/ehr_status/subject/external_ref/id/value = '12345'
+----
+
+The gateway resolves `subject = '12345'` to a local `ehr_id` *per listed endpoint*, runs standard AQL keyed on each `ehr_id`, and annotates rows with `endpoint_id` and `system_id` (both drawn from the registry / the resolving node, xref:result-set.adoc[§9]).

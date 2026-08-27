@@ -1,0 +1,108 @@
+= 17. Conformance points (consolidated)
+
+A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirements and a test track.
+
+[cols="1,5,2,1"]
+|===
+| CP | Statement | Requirements | Track
+
+| [[cp-1]]*CP-1*
+| The gateway exposes a conformant openEHR Query API and a basic patient query needs no federation-specific syntax.
+| xref:requirements.adoc#n1[N1]
+| 1
+
+| [[cp-2]]*CP-2*
+| The gateway accepts a `subject` predicate as façade input and *never* sends `subject` to a node.
+| xref:requirements.adoc#n2[N2], xref:requirements.adoc#n5[N5]
+| 1, 2
+
+| [[cp-3]]*CP-3*
+| `subject` is resolved to a per-node `ehr_id` via the cross-reference service (proposed: PIXm `$ihe-pix`), *outside AQL*.
+| xref:requirements.adoc#n3[N3]
+| 2
+
+| [[cp-4]]*CP-4*
+| Nodes are queried with *standard AQL keyed on `ehr_id`* only.
+| xref:requirements.adoc#n7[N7]
+| 2
+
+| [[cp-5]]*CP-5*
+| Undirected queries derive their node set (and consent) from localization; ask-all is an explicit fallback.
+| xref:requirements.adoc#n4[N4], xref:requirements.adoc#n10[N10]
+| 3, 4
+
+| [[cp-6]]*CP-6*
+| Directed `FROM ENDPOINT` / `ORGANISATION` selects the node set independently of patient resolution; `not-resolved` members are reported, not errored.
+| xref:requirements.adoc#n11[N11]
+| 3
+
+| [[cp-7]]*CP-7*
+| A `subject` column in the result is the *re-injected input*, never read from a CDR.
+| xref:requirements.adoc#n5[N5]
+| 2
+
+| [[cp-8]]*CP-8*
+| `DISTINCT` and `ORDER BY` are honoured at the Tier.
+| xref:requirements.adoc#n13[N13]
+| 5
+
+| [[cp-9]]*CP-9*
+| Default is pass-through (duplicates kept); opt-in `object_id` dedup keeps the originating copy for imported compositions.
+| xref:requirements.adoc#n15[N15]
+| 5
+
+| [[cp-10]]*CP-10*
+| Undirected aggregates are blocked unless cross-node-correct; a directed single-node aggregate is allowed.
+| xref:requirements.adoc#n14[N14]
+| 5
+
+| [[cp-11]]*CP-11*
+| Every in-scope node appears in `meta.endpoints[]` with a status; unresponsive nodes contribute no rows.
+| xref:requirements.adoc#n16[N16]
+| 4
+
+| [[cp-12]]*CP-12*
+| Partial results also surface as `OperationOutcome` warning/incomplete for FHIR consumers; status codes follow xref:partial-results.adoc#http-status-mapping[§11.2]; "found nowhere" → 200 + empty rows.
+| xref:requirements.adoc#n6[N6], xref:requirements.adoc#n16[N16]
+| 4
+
+| [[cp-13]]*CP-13*
+| The registry maps Organizations, Endpoints and every observed `system_id`/`creating_system_id` → CDR base URL.
+| xref:requirements.adoc#n19[N19], xref:requirements.adoc#n20[N20], xref:requirements.adoc#n21[N21]
+| 6
+
+| [[cp-14]]*CP-14*
+| Follow-up *reads* route to the owning CDR by `creating_system_id` (then `endpoint_id`, then ask-all); uids are never rewritten.
+| xref:requirements.adoc#n22[N22]
+| 6
+
+| [[cp-15]]*CP-15*
+| Versioned *writes* route to the single controlling CDR; unroutable writes are rejected; new objects target one chosen node.
+| xref:requirements.adoc#n23[N23]
+| 6
+
+| [[cp-16]]*CP-16*
+| Client identity is conveyed to the source CDR on every routed follow-up.
+| xref:requirements.adoc#n24[N24]
+| 7
+
+| [[cp-17]]*CP-17*
+| The client authenticates to the gateway; the gateway authenticates onward and propagates identity (signed JWT / Backend Services).
+| xref:requirements.adoc#n25[N25]
+| 7
+
+| [[cp-18]]*CP-18*
+| Access decisions needing gateway-invisible information are delegated to the source CDR.
+| xref:requirements.adoc#n26[N26]
+| 7
+
+| [[cp-19]]*CP-19*
+| Consent gates node inclusion at Step 1 and is re-checked at the node.
+| xref:requirements.adoc#n27[N27]
+| 7
+
+| [[cp-20]]*CP-20*
+| An openEHR Query API endpoint uses a defined `connectionType` (e.g. `openehr-rest-query`), not `hl7-fhir-rest` and not an informal string.
+| xref:requirements.adoc#n19[N19]
+| 6
+|===

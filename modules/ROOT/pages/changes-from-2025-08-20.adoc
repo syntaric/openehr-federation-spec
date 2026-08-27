@@ -1,0 +1,92 @@
+= Changes from the 2025-08-20 proposal
+
+This note accompanies *_Proposal for Federation Tier with AQL - revised_* and records what changed relative to the original openEHR International Federation Working Group proposal _"Proposal for Federation Tier with AQL"_ (2025-08-20). The revised specification itself is written as a standalone spec and does not narrate this history; that history lives here.
+
+== Headline (breaking) changes
+
+[cols="1,4,2,3"]
+|===
+| # | Change | Where in the revised spec | Rationale
+
+| C1
+| *Federation is keyed on the per-node local `ehr_id`, not on `EHR_STATUS.subject`.* The gateway resolves `subject → ehr_id` *outside* AQL and dispatches *standard, non-federated* AQL per node.
+| xref:reference-flow.adoc[§4], xref:identity-resolution.adoc[§5], xref:requirements.adoc[§6] (N3, N7), xref:aql-facade.adoc[§7]
+| MPI advisory §3 (storing an identifier in `EHR_STATUS.subject` is undesirable); RSO "Record identification".
+
+| C2
+| *The federated example that filtered `WHERE …/ehr_status/subject/external_ref/id/value` at the node level is removed.* `subject` now appears only as _façade input_, rewritten to `ehr_id` before dispatch.
+| xref:aql-facade.adoc[§7] (before→after)
+| Internal consistency: the old example keyed federation on `subject`.
+
+| C3
+| *The gateway is defined as a transparent façade* - a client can query and follow up without knowing it is federated; the API is a conformant openEHR Query API.
+| xref:index.adoc[§1], xref:architecture.adoc[§3.2], xref:requirements.adoc#n1[N1]
+| HL7 Intermediaries White Paper (transparency).
+
+| C4
+| *Storing the BSN in `EHR_STATUS.subject` is no longer part of the federation model* (it was the RSO interim approach). Identity is resolved in an MPI/demographic layer; no national identifier need be stored in the CDR.
+| xref:identity-resolution.adoc[§5], xref:requirements.adoc#n5[N5]
+| MPI advisory §3; RSO's own "Hide"/external-ref migration note.
+
+| C5
+| *Identity / localization / addressing are bound to IHE profiles* (PIXm, PDQm, XCPD, PMIR, mCSD) as the *proposed binding*, with the *Dutch Generic Functions* as a regional alternative in an informative annex.
+| xref:identity-resolution.adoc[§5], xref:localization.adoc[§14], xref:addressing.adoc[§15], xref:annex-a-ihe.adoc[Annex A], xref:annex-b-dutch-gf.adoc[Annex B]
+| Consolidated design decision; MPI advisory §4.
+
+| C6
+| *Follow-up read _and_ write routing is specified*, provenance-honest: rows carry an endpoint identifier and routing uses the `creating_system_id` inside the `OBJECT_VERSION_ID`; *openEHR uids are never rewritten*.
+| xref:result-set.adoc[§9], xref:follow-up-routing.adoc[§12] (N21–N24)
+| Intermediaries White Paper (routing follow-ups); Exchange-Routing IG (self-routing base URL).
+
+| C7
+| *Four previously-absent areas are added:* authN/authZ handoff (xref:security.adoc[§13]), localization vs record-locator split (xref:localization.adoc[§14]) and addressing (xref:addressing.adoc[§15]), follow-up routing (xref:follow-up-routing.adoc[§12]), and a Connectathon-style test guide (xref:testing.adoc[§16]–xref:conformance.adoc[§17]).
+| §12–§17
+| Gaps flagged in the change brief.
+|===
+
+== Requirement mapping (old numbers → new N-numbers)
+
+The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers them as *N1–N27*. The table below maps old→new and marks the change.
+
+[cols="1,2,1,5"]
+|===
+| New | Change | Old | Note
+
+| xref:requirements.adoc#n1[N1] | new | - | Transparent façade: no indication it is federated.
+| xref:requirements.adoc#n2[N2] | new | - | Accept `subject` as façade input; never execute it at a node.
+| xref:requirements.adoc#n3[N3] | new | - | Resolve `subject → {node, ehr_id, consent}` outside AQL.
+| xref:requirements.adoc#n4[N4] | new | - | Undirected queries get nodes + consent from a localization service.
+| xref:requirements.adoc#n5[N5] | new | - | No national identifier required in `EHR_STATUS.subject`; a returned subject column is re-injected input.
+| xref:requirements.adoc#n6[N6] | new | - | `not-resolved` / `consent-denied` per node recorded, not fatal.
+| xref:requirements.adoc#n7[N7] | changed | #1 | Dispatch *standard* AQL keyed on `ehr_id`, not `subject` (the core shift).
+| xref:requirements.adoc#n8[N8] | changed (SHOULD→MUST) | #3 | Dispatch only to nodes where the patient is resolved *and* consent permits.
+| xref:requirements.adoc#n9[N9] | kept | #13 | `WHERE`/`LIMIT`/`OFFSET` execute within each node.
+| xref:requirements.adoc#n10[N10] | changed | #6 | Accept an undirected query identifying only the patient.
+| xref:requirements.adoc#n11[N11] | changed (merge) | #7 + #8 | Accept a directed query naming Endpoints (SHOULD: Organizations); directive is independent of patient resolution.
+| xref:requirements.adoc#n12[N12] | kept | #2 | Add Endpoint/Organization attributes to rows when selected.
+| xref:requirements.adoc#n13[N13] | changed (SHOULD→MUST) | #14 | `DISTINCT` and `ORDER BY` supported at the Tier.
+| xref:requirements.adoc#n14[N14] | changed | #12 | Block undirected aggregates unless cross-node-correct; directed single-node aggregate allowed.
+| xref:requirements.adoc#n15[N15] | new | - | Default no dedup + provenance; opt-in `object_id` VERSION-identity dedup.
+| xref:requirements.adoc#n16[N16] | kept (extended) | (Unresponsive) | Unresponsive nodes in `meta.endpoints[]`; status set extended with `not-resolved`/`consent-denied`/`excluded`.
+| xref:requirements.adoc#n17[N17] | kept | (result format) | `{q, columns, rows}` + `meta`; no endpoint columns unless selected.
+| xref:requirements.adoc#n18[N18] | kept | (aliasing) | ENDPOINT aliases resolve collisions with EHR columns.
+| xref:requirements.adoc#n19[N19] | changed (merge) | #9 + #11 | FHIR `Endpoint`/`Organization` RECOMMENDED; *define a real `connectionType`* instead of the informal `'open-ehr-query-API'` string.
+| xref:requirements.adoc#n20[N20] | kept | #10 | Every Endpoint has exactly one managing Organization (1..1).
+| xref:requirements.adoc#n21[N21] | changed | #4 | Registry also maps `system_id`/`creating_system_id` → CDR base URLs (the follow-up routing table).
+| xref:requirements.adoc#n22[N22] | new | - | Follow-up *reads* route to the owning CDR by `creating_system_id`; uids never mutated.
+| xref:requirements.adoc#n23[N23] | new | - | Versioned *writes* route to the single controlling CDR; new objects target one chosen node.
+| xref:requirements.adoc#n24[N24] | new | - | Convey authenticated client identity on every routed follow-up.
+| xref:requirements.adoc#n25[N25] | new | - | Client authenticates to the Tier; the Tier propagates identity onward (signed JWT / Backend Services).
+| xref:requirements.adoc#n26[N26] | new | - | Delegate access decisions needing gateway-invisible information to the source CDR.
+| xref:requirements.adoc#n27[N27] | new | - | Consent gates node inclusion at Phase 1.
+|===
+
+*Dropped / folded:* old *#5* (standalone Record Locator Service requirement) is split into localization (N4), addressing (N21/§15) and cross-reference (N3). The old federated `WHERE …/subject` example is replaced by the xref:aql-facade.adoc[§7] before→after rewrite.
+
+== Other notable edits
+
+* *Result set:* `system_id` added to the selectable ENDPOINT attribute set, so a row can carry the openEHR-native routing key (xref:result-set.adoc[§9]).
+* *Deduplication:* the imported-composition case (same `object_id`, two `creating_system_id`s) is now handled by an opt-in VERSION-identity dedup (xref:deduplication.adoc[§10]).
+* *Partial results:* the endpoint status set is extended and mapped to HTTP status codes aligned with the Exchange-Routing IG; "patient found nowhere" is a `200` with empty rows, not a `404` (xref:partial-results.adoc[§11]).
+* *Diagrams:* the two reference-flow sequence diagrams are authored in PlantUML (`diagrams/*.puml`) and embedded as rendered images.
+* *Spec vs regional realisation:* all Dutch-specific detail (Mitz/OTV, NVI, LRZa, `did:web`/VC/DPoP, Rego/`mitz_consent`, pseudonymised-BSN localization) and the ACP/Vitaly worked example are confined to the informative xref:annex-b-dutch-gf.adoc[Annex B]; the normative body names only abstract roles and their proposed IHE binding (xref:scope.adoc[§2.4]).

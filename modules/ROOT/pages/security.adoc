@@ -1,0 +1,17 @@
+= 13. Authentication & Authorization
+
+== 13.1 Identity conveyance (client → gateway → node)
+
+* The client MUST authenticate to the Federation Tier (xref:requirements.adoc#n25[N25]). The Tier authenticates *onward* to each node and MUST *propagate the client's identity*, because - per the White Paper - the source server needs it both to enable appropriate audit records on the source server and to allow the source server to make appropriate security decisions about what records are made available.
+* The proposed mechanism is a *signed JWT* / *SMART Backend Services* token exchange: a node hosts an OAuth token endpoint that authenticates the gateway via a *client assertion* (SMART App Launch: Backend Services), and the gateway MAY carry an OpenID Connect `id_token` claim inside its assertion to scope the request to an end-user.
+
+== 13.2 Per-node authorization and consent
+
+* Each node performs its *own* authorization and *consent/opt-out* checks before releasing data - each participant is responsible for checking consent or opt-out before providing health information of a given patient. Consent gates node inclusion at *Step 1* (xref:requirements.adoc#n27[N27], xref:identity-resolution.adoc[§5]) and is re-checked at the node.
+* Access decisions requiring information *not visible* to the gateway MUST be *delegated to the source CDR*; the gateway MUST NOT be the sole authority for releasing sensitive data (xref:requirements.adoc#n26[N26]).
+
+Two responsibilities are distinct and both hold: *the localization/consent service MAY supply a consent decision* at Step 1 (in some realisations consent is implied by the localization result), which the gateway uses to exclude non-consented nodes; and *the node is the final authority*, re-checking consent before releasing data whether or not the gateway pre-filtered. Where no consent-aware localization exists (xref:reference-flow.adoc[§4.3]), Step 1 carries no consent signal and the node's own check is the sole gate.
+
+== 13.3 Regional realisation
+
+A deployment MAY realise this handoff with a regional authentication/authorization/consent stack instead of a plain signed-JWT exchange, provided xref:requirements.adoc#n24[N24]–N27 still hold. The Dutch Generic-Functions realisation (federated OAuth with sender-constrained tokens, policy-based authorization, and a national consent service) is documented in *xref:annex-b-dutch-gf.adoc[Annex B (§B.4–§B.6)]*.

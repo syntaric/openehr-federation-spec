@@ -1,0 +1,54 @@
+= 9. Result-set format & origin metadata
+
+== 9.1 Envelope
+
+The result set MUST follow the `{q, columns, rows}` + `meta` envelope (xref:requirements.adoc#n17[N17]). Endpoint columns appear *only* when ENDPOINT attributes are selected; otherwise the row shape is *identical* to running the same query directly on a single CDR (single-CDR compatibility, xref:requirements.adoc#n17[N17]). ENDPOINT attribute aliases resolve any name collision with EHR-derived columns (xref:requirements.adoc#n18[N18]).
+
+== 9.2 ENDPOINT attribute set
+
+The selectable ENDPOINT attributes are the endpoint/organization provenance fields plus the openEHR-native routing key `system_id`:
+
+[cols="1,2"]
+|===
+| Attribute | Meaning
+
+| `endpoint_id`
+| Stable registry identifier of the Endpoint (xref:requirements.adoc#n19[N19]).
+
+| `organisation` / `organization_id`
+| The managing Organization (xref:requirements.adoc#n20[N20]).
+
+| `system_id`
+| The node's openEHR logical EHR-system id - the follow-up routing key (xref:follow-up-routing.adoc[§12], xref:requirements.adoc#n21[N21]).
+
+| `url`
+| The CDR base URL (from the registry; MAY be omitted from rows and left in `meta`).
+|===
+
+Including `system_id` in the row-level attribute set puts the *openEHR-native routing key* in the result, so the Application tier can route a follow-up without a second registry lookup (xref:follow-up-routing.adoc[§12]).
+
+== 9.3 Example
+
+[source,json]
+----
+{
+  "q": "SELECT p/id AS endpoint_id, p/system_id AS system_id, c/uid/value AS composition_id FROM ENDPOINT p [\"node_1\",\"node_2\"] CONTAINS EHR e CONTAINS COMPOSITION c WHERE e/ehr_status/subject/external_ref/id/value = '12345'",
+  "columns": [
+    { "name": "endpoint_id",    "path": "p/id",        "type": "STRING" },
+    { "name": "system_id",      "path": "p/system_id", "type": "STRING" },
+    { "name": "composition_id", "path": "c/uid/value", "type": "STRING" }
+  ],
+  "rows": [
+    { "endpoint_id": "node_1", "system_id": "cdr1.rso.nl", "composition_id": "8849182a-1d4b-4e3d-a3f3-f303d2f4f34b::cdr1.rso.nl::1" },
+    { "endpoint_id": "node_2", "system_id": "cdr2.rso.nl", "composition_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8::cdr2.rso.nl::1" }
+  ],
+  "meta": {
+    "endpoints": [
+      { "id": "node_1", "system_id": "cdr1.rso.nl", "organisation": "Org A", "url": "https://ehr.hospital-a.example/openehr/v1", "status": "active" },
+      { "id": "node_2", "system_id": "cdr2.rso.nl", "organisation": "Org B", "url": "https://ehr.clinic-b.example/openehr/v1", "status": "active" }
+    ]
+  }
+}
+----
+
+Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`) - this is what xref:follow-up-routing.adoc[§12] routes on.

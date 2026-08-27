@@ -1,0 +1,20 @@
+= 14. Localization / Record Locator
+
+Localization and identity resolution are two separate questions, and this specification keeps them separate:
+
+* *Localization* answers _"which nodes might hold this patient's data"_ (an *undirected* discovery step).
+* *Identity resolution* answers _"what is this patient's local `ehr_id` at a given node?"_ (the cross-reference of xref:identity-resolution.adoc[§5]).
+
+== 14.1 Normative
+
+* For an undirected query, the Tier MUST consume a *node list* from a localization / record-locator service (xref:requirements.adoc#n4[N4]). It SHOULD use one when available and MAY fall back to *ask-all-known-nodes* (xref:reference-flow.adoc[§4.3]) when none is present.
+* The locator's *internals are out of scope* (xref:requirements.adoc#n4[N4]). This spec requires only the *interface*: give the Tier a set of candidate nodes.
+* *Proposed binding: IHE XCPD* (Cross-Community Patient Discovery, *ITI-55*) for locating communities that hold the patient's data
+
+== 14.2 Localizer kinds (informative examples)
+
+Several kinds of service can satisfy N4: community-discovery services (IHE XCPD), demographic-registration services (which orgs registered the patient's demographics), dedicated location services (where the patient was treated/diagnosed, or care-team members), document-sharing registries (IHE XDS for pointer/document localization), *consent-based* localization (endpoints where the patient gave active consent), *care-team-based* localization (nodes manage their own care-team lists), and location-discovery services (using demographics to infer places holding data). Each returns a list of places potentially holding relevant data; variants include a central registry, a decentral registry, or no registry (pure discovery).
+
+== 14.3 Regional realisation
+
+A national record-localization service backed by per-holder metadata registers, keyed on a pseudonymised patient id and checking consent as part of the lookup, is one way to satisfy N4. The Dutch Generic-Functions realisation (GF-Localization) is documented in *xref:annex-b-dutch-gf.adoc[Annex B (§B.1)]*.

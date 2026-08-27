@@ -1,0 +1,10 @@
+= 18. Considerations for future releases
+
+* *Federation-of-federations.* A federation cannot yet be a node of another federation.
+* *Comprehensive error catalogue.* A full list of mandatory error messages, validation (checksums) and debug information is out of scope for now.
+* *Imported-composition dedup.* xref:deduplication.adoc[§10.2] defines the mechanism; broader reconciliation of independently authored equal data remains open.
+* *Cross-node pagination.* `LIMIT`/`OFFSET` execute per node (xref:requirements.adoc#n9[N9]); a federation-wide stable pagination/ordering across nodes is not yet specified.
+* *Write / transaction semantics.* xref:follow-up-routing.adoc[§12.4] covers single-CDR versioned writes and single-node new-object creation; multi-node transactions and creation spanning nodes are deferred (disallowed in v1).
+* *`connectionType` alignment.* A real openEHR Query-API `connectionType` code (e.g. `openehr-rest-query`) should be *registered* (with openEHR/HL7 terminology) so xref:addressing.adoc[§15.2]/xref:requirements.adoc#n19[N19] can bind a stable system value rather than a placeholder.
+* *PMIR merge/split (ITI-93/94).* Hooks and a test track (track 8) are reserved; full propagation of identity merges/splits across the federation MAY be deferred to a later release.
+* *Deployment topology.* The spec is deployment-neutral; a future release MAY profile the distributed-gateway variant (per-node gateways with a trust-over-IP framework distributing addressing information) in more detail.

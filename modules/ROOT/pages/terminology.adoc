@@ -1,0 +1,19 @@
+= Reader's guide and terminology
+
+== Key terms
+
+* *Federation* - the virtual CDR: a governed set of member nodes together with the gateway(s) that front them, operating under one trust and membership framework. A federation has exactly one membership boundary regardless of how many gateways implement it. When this document says "the federation returns X", it means the virtual repository as a whole.
+* *Federation Tier* - the architectural layer between the Application tier and the Node tier. It is a role and not a deployable unit; it is filled by one or more gateways.
+* *Gateway* - a software component that implements the Federation Tier role: it presents an openEHR Query API, resolves patient identity, fans a query out to member nodes, combines results, and routes follow-ups. A federation has one gateway in the centralized topology and one per node in the distributed topology; in both cases every gateway fronts the same membership.
+* *Façade* - the client-facing contract a gateway presents: a conformant openEHR Query API that hides federation from the client. Façade AQL (what the client sends) as opposed to node AQL (what the gateway dispatches). "Façade" names the interface, not the box.
+* *Node* - a participating system in openEHR federated architecture: an openEHR *CDR*
+* *`subject`* - the patient identifier a client places in `ehr_status/subject/external_ref/id/value` (e.g. a BSN or a pseudonymised id). At the façade this is *input for identity resolution only*.
+* *`ehr_id`* - a per-CDR `HIER_OBJECT_ID` identifying one `EHR`. It is *meaningless across CDRs* and is the key on which federated queries actually run.
+* *`system_id` / `creating_system_id`* - openEHR logical EHR-system identifier. `EHR.system_id` is the system in which an `EHR` was created; `creating_system_id` (inside an `OBJECT_VERSION_ID`) is the system that created a specific `VERSION`. Both are used as the *routing keys* for follow-up reads/writes.
+
+[#requirement-language]
+== Requirement language
+
+The key words *MUST*, *MUST NOT*, *SHALL*, *SHOULD*, *SHOULD NOT*, *MAY* and *RECOMMENDED* are to be interpreted as described in RFC 2119 / RFC 8174.
+
+A note on *bindings.* Where this specification names an IHE profile (PIXm, PDQm, XCPD, PMIR, mCSD) for a role, that is a *proposed binding*: the requirement - that the role be filled - is normative, while the specific profile named to fill it is a proposal open to review. Regional alternatives are documented in xref:annex-b-dutch-gf.adoc[Annex B]

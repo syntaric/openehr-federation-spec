@@ -1,0 +1,51 @@
+= 6. SPECIFICATION - normative requirements (N1–N27)
+
+Requirement language is RFC 2119. Where a requirement names an IHE profile, the profile is a *proposed binding* (xref:terminology.adoc#requirement-language[§ Requirement language]): the obligation is normative, the named profile is a proposal.
+
+== Transparency & façade
+
+* [[n1]]*N1.* A client MUST be able to query, and to perform follow-up interactions with, the Federation Tier *with no indication that it is federated*; the interface MUST be a *conformant openEHR Query API*.
+* [[n2]]*N2.* The Federation Tier MUST accept an openEHR-compliant AQL query that identifies the patient via `ehr_status/subject`, MUST treat that predicate as a *façade convenience only*, and MUST NOT execute that subject predicate at any node. _(xref:aql-facade.adoc[§7].)_
+
+== Patient resolution (Step 1)
+
+* [[n3]]*N3.* Before dispatch, the Tier MUST resolve `<patientId> → {node, local ehr_id}` via an identifier cross-reference service (proposed binding: IHE PIXm `$ihe-pix`). Resolution MUST occur *outside AQL*. _(xref:identity-resolution.adoc[§5.2].)_
+* [[n4]]*N4.* For an undirected query, the Tier MUST obtain candidate nodes from a localization / record-locator service (proposed binding: IHE XCPD). The service's internals are out of scope. _(xref:localization.adoc[§14].)_
+* [[n5]]*N5.* The Tier MUST NOT require the BSN or any national identifier to be stored in `EHR_STATUS.subject` at any node. A returned `subject` column MUST be the *re-injected resolution input*. _(xref:identity-resolution.adoc[§5], xref:aql-facade.adoc[§7].)_
+* [[n6]]*N6.* `not-resolved` outcomes *per node* MUST be recorded in metadata and MUST NOT fail the whole query. _(xref:partial-results.adoc[§11], §27.)_
+
+== Dispatch & rewrite (Step 2)
+
+* [[n7]]*N7.* The Tier MUST dispatch *standard, non-federated* AQL to each eligible node, scoped to that node's *resolved* `ehr_id` - keyed on `ehr_id`, *not* on `subject`. _(xref:aql-facade.adoc[§7].)_
+* [[n8]]*N8.* The Tier MUST dispatch *only* to nodes where the patient is resolved (via the cross-reference service)
+* [[n9]]*N9.* `WHERE`, `LIMIT` and `OFFSET` clauses execute *within* each node; the Application tier is responsible for correct interpretation and presentation. _(Cross-node pagination is not guaranteed; xref:future.adoc[§18].)_
+* [[n10]]*N10.* The Tier MUST accept an *undirected* query that identifies only the patient; the node set is derived from localization (<<n4,N4>>).
+* [[n11]]*N11.* The Tier MUST accept a *directed* query that names *Endpoints*, and SHOULD accept one that names *Organizations*. The directive selects the *node set* and is *independent of patient resolution*; per-node scope is still the resolved `ehr_id`. _(xref:endpoint-directive.adoc[§8].)_
+
+== Combine / annotate / dedup (Step 3)
+
+* [[n12]]*N12.* The Tier MUST be able to add *Endpoint* and *Organization* attributes to rows when those attributes are selected. _(xref:result-set.adoc[§9].)_
+* [[n13]]*N13.* `DISTINCT` and `ORDER BY` MUST be supported at the Federation Tier.
+* [[n14]]*N14.* The Tier MUST block *undirected aggregate* queries (`SUM`, `COUNT`, `MIN`, `MAX`, `AVG`) unless cross-node correctness is guaranteed; a *directed single-node* aggregate is permitted. _(xref:aql-facade.adoc[§7].)_
+* [[n15]]*N15.* By default the Tier MUST NOT deduplicate; it MUST make rows distinguishable via *endpoint provenance* (relying on `DISTINCT`). It SHOULD offer an opt-in *VERSION-identity dedup* keyed on the openEHR `object_id`, keeping the originating copy and recording suppressed endpoints. _(xref:deduplication.adoc[§10].)_
+* [[n16]]*N16.* Unresponsive nodes MUST NOT contribute rows and MUST appear in `meta.endpoints[]` with a status and error; the status set includes `not-resolved`, `consent-denied` and `excluded`. _(xref:partial-results.adoc[§11].)_
+
+== Result-set shape
+
+* [[n17]]*N17.* The result set MUST be `{q, columns, rows}` plus `meta`; when *no* ENDPOINT attribute is selected, rows MUST NOT contain endpoint columns (single-CDR compatibility). _(xref:result-set.adoc[§9].)_
+* [[n18]]*N18.* ENDPOINT attribute aliases MUST resolve name collisions with EHR-derived columns. _(xref:result-set.adoc[§9].)_
+* [[n19]]*N19.* The FHIR `Endpoint` and `Organization` resources are RECOMMENDED for the registry. An `Endpoint` SHOULD carry a *defined* openEHR Query-API connection type: implementers MUST *register a real code* (e.g. `openehr-rest-query`) or bind a specified system value rather than an informal string. Every `Endpoint` MUST have a *stable unique identifier* used in directives. _(xref:endpoint-directive.adoc[§8], xref:result-set.adoc[§9], xref:addressing.adoc[§15].)_
+* [[n20]]*N20.* Every `Endpoint` MUST have *exactly one* managing `Organization` (1..1), which need not be the organization that physically exposes the endpoint.
+* [[n21]]*N21.* The Tier MUST maintain a *registry* mapping Organizations, Endpoints, *and* openEHR `system_id` / `creating_system_id` → CDR base URLs - the *follow-up routing table*. The registry MUST map every observed `creating_system_id`, not only node `system_id`s (a CDR may hold versions created elsewhere). _(xref:follow-up-routing.adoc[§12], xref:addressing.adoc[§15].)_
+
+== Follow-up routing (reads & writes)
+
+* [[n22]]*N22.* The Tier MUST support *follow-up reads* of a specific `COMPOSITION`/`VERSION` identified in a result row, routing to the *owning CDR* by (in priority order) the `creating_system_id` embedded in the `OBJECT_VERSION_ID`, else a carried `endpoint_id`, else an *ask-all* fallback. The Tier MUST NOT mutate openEHR uids. _(xref:follow-up-routing.adoc[§12].)_
+* [[n23]]*N23.* The Tier MUST route a *versioned write* (`CONTRIBUTION`/commit to an existing object) to the *single controlling CDR* (`system_id == creating_system_id` of the target object) and MUST *reject* writes it cannot unambiguously route. *New-object creation* MUST target an *explicitly chosen* node (via `FROM ENDPOINT` or a target parameter); creation spanning multiple nodes is disallowed in v1. _(xref:follow-up-routing.adoc[§12], xref:scope.adoc[§2.3].)_
+* [[n24]]*N24.* On *every* routed follow-up (read or write) the Tier MUST convey the *authenticated client identity* to the source CDR, for audit records and access decisions. _(xref:security.adoc[§13].)_
+
+== AuthN / AuthZ & security handoff
+
+* [[n25]]*N25.* The client MUST authenticate to the Federation Tier; the Tier authenticates *onward* and MUST *propagate the client identity* to nodes (a signed JWT / SMART Backend Services token exchange; a regional federated-identity stack MAY be used instead - xref:annex-b-dutch-gf.adoc[Annex B]). _(Intermediaries White Paper Conformance Point #2; xref:security.adoc[§13].)_
+* [[n26]]*N26.* Access decisions that need information *not visible* to the gateway MUST be *delegated to the source CDR*; the gateway MUST NOT be the sole authority for releasing sensitive data. _(xref:security.adoc[§13].)_
+* [[n27]]*N27.* *Consent enforcement* - conveyed via the localization/consent service (proposed binding: IHE XCPD; a regional consent service MAY be used, xref:annex-b-dutch-gf.adoc[Annex B]) - MUST gate node inclusion at *Step 1* (this feeds <<n6,N6>>), and the node MUST re-check consent before releasing data. _(xref:security.adoc[§13], xref:localization.adoc[§14].)_

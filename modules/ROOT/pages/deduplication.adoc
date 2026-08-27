@@ -1,0 +1,19 @@
+= 10. Deduplication
+
+== 10.1 Default: pass-through + provenance
+
+By default the Tier MUST *not* deduplicate (xref:requirements.adoc#n15[N15]). Consistent with the White Paper (it is normal for the façade to pass duplicates to the client) and with SQL semantics, duplicate rows are returned unless the client filters them with `DISTINCT`. When data may legitimately appear via multiple endpoints (e.g. sharding, caching), the client SHOULD add ENDPOINT provenance columns (xref:result-set.adoc[§9]) so rows become *distinguishable*.
+
+== 10.2 Opt-in VERSION-identity dedup (the imported-composition case)
+
+The Tier SHOULD offer an *opt-in* dedup mode keyed on the openEHR `object_id` (the first segment of the `OBJECT_VERSION_ID`). This addresses the *imported-composition* case: an imported `COMPOSITION` retains its *original* `VERSION` uid (its `feed_audit.originating_system_id` records where it came from), so the *same `object_id` appearing under two different `creating_system_id`s is the import signature* of one logical version present in two CDRs.
+
+Rules for this mode:
+
+* Group rows by `object_id`; within a group, *keep the originating copy* and record the suppressed endpoints (e.g. in `meta`). The retained-copy rule MUST be *deterministic* - prefer the copy whose `creating_system_id` equals the `object_id`'s originating system.
+* The mode SHOULD be scoped to *latest-version* queries; a version-history query MUST keep distinct rows (different `version_tree_id`s are genuinely different versions).
+
+== 10.3 Stated limits
+
+* This dedup does *not* merge *independently authored* but equal data (two clinicians recording the same fact in two CDRs are two distinct `object_id`s). That is a clinical-reconciliation problem, not a federation one; the White Paper notes determining duplicate records this way is extremely difficult.
+* *Content-hash* dedup is explicitly *not* mandated.

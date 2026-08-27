@@ -1,0 +1,72 @@
+= Proposal for Federation Tier with AQL - revised
+:navtitle: Overview
+
+*Status:* Draft for review · *Version:* 0.2 (revised) · *Date:* 2026-08-02 ·
+*Supersedes:* _Proposal for Federation Tier with AQL_, openEHR Federation Working Group, 2025-08-20 ·
+*License:* Creative Commons Zero v1.0 Universal (CC0)
+
+[NOTE]
+.Editorial note
+====
+This is a working draft circulated for comment. A companion note, xref:changes-from-2025-08-20.adoc[Changes from the 2025-08-20 proposal], records what changed relative to the 2025-08-20 proposal; this document is written to stand on its own as a specification and does not otherwise narrate that history.
+====
+
+== WG Members for revision
+
+* Remko Nienhuis
+* Joost Holslag
+* Gasper Andrejc
+
+== Referenced documents
+
+This specification references the following documents and sources, which informed several of its design decisions.
+
+[cols="1,2"]
+|===
+| Document | Role in the specification
+
+| _Proposal for Federation Tier with AQL_, openEHR Federation WG, 2025-08-20
+| The proposal this revision builds on. Differences are catalogued in xref:changes-from-2025-08-20.adoc[_Changes from the 2025-08-20 proposal_].
+
+| HL7 https://confluence.hl7.org/spaces/FHIR/pages/144967060/Intermediaries+White+Paper[_Intermediaries White Paper_]
+| Façade transparency; the four follow-up-routing approaches; de-duplication provenance; unresponsive-server handling; auth conveyance; numbered Conformance Points.
+
+| https://drive.google.com/file/d/1COoXE0kU1MqO9JNDTO67SForWo8rRtqg/view?usp=drive_link[_Identity management in a distributed openEHR architecture_ (Adviesrapport openEHR federatie MPI), I. Schoonbrood, 2026]
+| A proposal for handling patient identity in a distributed openEHR architecture: why a national identifier should not be stored in `EHR_STATUS.subject`, how to map identity resolution onto IHE PIXm/PDQm/XCPD/PMIR, and the end-to-end ITI flow.
+
+| https://github.com/RSO-Zuid-Limburg/Public-documentation/blob/main/RSO%20data%20strategy.docx[_RSO Zuid-Limburg data (liberation) strategy_]
+| The rationale for a distributed CDR architecture in the Netherlands - why data stays under each provider's control, the benefits for privacy and consent, per-node consent responsibility, and the centralized-vs-distributed gateway trade-off.
+
+| HL7 FHIR _Hybrid / Intermediary Exchange_ IG (`https://build.fhir.org/ig/HL7/fhir-exchange-routing-ig/`)
+| The passive reverse-proxy pattern
+
+| https://build.fhir.org/ig/nuts-foundation/nl-generic-functions-ig/index.html[_Netherlands - Generic Functions for data exchange_] (Nuts `nl-generic-functions-ig` v0.3.0)
+| The regional alternative binding (xref:annex-b-dutch-gf.adoc[Annex B]): GF-Localization, GF-Addressing, GF-Identification, GF-Authentication, GF-Authorization, GF-Consent.
+|===
+
+== 1. Summary
+
+This specification incorporates a *Federation Tier* into openEHR querying, enabling a client to run a query across *multiple distributed CDRs* as though they were a single repository.
+
+A *federation* is a *virtual repository* built from a securely connected group of nodes that hold vendor-neutral, openEHR-modelled health data and expose openEHR Query (AQL) APIs. Clients reach it through the Federation Tier, implemented by one or more gateways.
+
+It is a technically *transparent intermediary*: a client MUST be able to send it a conformant openEHR AQL query and follow-up requests *without knowing it is federated*.
+
+The architecture has three tiers:
+
+* *Application tier* - where end-user applications are built (consuming system of the gateway).
+* *Federation Tier* - the services that connect the nodes as a virtual repository.
+* *Node tier* - where data is stored and openEHR APIs are published to access it.
+
+.The three tiers - centralized and distributed gateway topologies. Source: `diagrams/federation_three_tiers.puml`.
+image::federation_three_tiers.png[The three tiers - centralized and distributed gateway topologies]
+
+Federation keys on the per-node local `ehr_id`, and identity resolution happens outside the query:
+
+* The client SHOULD identify the patient in AQL the openEHR-idiomatic way, via `WHERE e/ehr_status/subject/external_ref/id/value = <patientId>`
+* *Before* any query is dispatched, the gateway *resolves the patient identifier to a set of `{node, local ehr_id}`* using an *identity/localization service outside AQL* (proposed binding: IHE PIXm, with XCPD/PMIR as needed; a region MAY use national services such as a record-locator or consent service - see xref:annex-b-dutch-gf.adoc[Annex B]).
+* The gateway then dispatches *standard, non-federated AQL scoped to each node's resolved `ehr_id`*, combines the rows, applies federation `DISTINCT`/`ORDER BY`, and annotates each row with *endpoint provenance*. The combined result lets the Application tier interpret results and take follow-up actions (reads and writes) on a specific node.
+
+A single node can be a member of more than one federation and can expose more than one `ENDPOINT` (e.g. for different connection types). `EHR.system_id` is a *local* identifier of the logical EHR-management system in which an `EHR` was created.
+
+The rationale for keying on `ehr_id` rather than `subject`, and for placing identity resolution outside the federated query, is given in xref:identity-resolution.adoc[§5].

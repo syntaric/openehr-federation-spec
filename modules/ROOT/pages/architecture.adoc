@@ -1,0 +1,19 @@
+= 3. Architecture & Tiers
+
+== 3.1 The three tiers
+
+The federation is a layered, distributed system:
+
+* *Application tier* - end-user applications. They send AQL and consume the combined result set; they interpret and present results and initiate follow-up reads/writes (xref:follow-up-routing.adoc[§12]).
+* *Federation Tier* - the technically transparent intermediary. It (a) accepts a conformant openEHR Query API request, (b) resolves the patient identifier to `{node, ehr_id}` *outside AQL*, (c) dispatches *standard* AQL keyed on `ehr_id`, (d) combines and annotates results, and (e) routes follow-up reads/writes to the owning node. It maintains the *registry* (organizations, endpoints, and `system_id`/`creating_system_id` → CDR base URLs) that makes routing possible (xref:requirements.adoc#n21[§6/N21]).
+* *Node tier* - a member openEHR *CDR* and its *Query (AQL) API*. A node runs *ordinary* openEHR queries scoped to a single `EHR`; it does *not* need to know it is part of a federation
+
+.The three tiers - centralized and distributed gateway topologies. Source: `diagrams/federation_three_tiers.puml`.
+image::federation_three_tiers.png[The three tiers - centralized and distributed gateway topologies]
+
+== 3.2 Transparent-intermediary principle
+
+The gateway follows the transparent-intermediary model of the Intermediaries White Paper: the intermediary performs the search across the servers and collates the response so the client need not know about the multiple contributing sources. Two consequences are normative here:
+
+* The client interface MUST be a *conformant openEHR Query API* (xref:requirements.adoc#n1[§6/N1]); the client neither sends nor needs any federation-specific syntax to run a basic patient query.
+* Transparency is *conditional on completeness*: when a node is dropped (unresponsive, not-resolved, consent-denied), the gateway MUST make that visible in metadata (xref:partial-results.adoc[§11]) so the consumer is not silently misled.

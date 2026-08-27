@@ -1,0 +1,36 @@
+= 2. Scope & Non-Goals
+
+== 2.1 In scope
+
+. The *façade contract*: accepting a conformant openEHR AQL query that MAY identify the patient by `ehr_status/subject`, and behaving as a technically transparent intermediary (xref:aql-facade.adoc[§7], xref:requirements.adoc#n1[§6/N1–N2]).
+. The *two/three-step execution model*: resolve `subject → {node, ehr_id}`, fan out *standard* AQL keyed on `ehr_id`, then combine/annotate (xref:reference-flow.adoc[§4], xref:requirements.adoc[§6], xref:aql-facade.adoc[§7]).
+. The *optional AQL extension* (`FROM ENDPOINT …` / `ORGANISATION …`) for pinning a query to named systems and surfacing provenance - decoupled from patient resolution (xref:endpoint-directive.adoc[§8]).
+. The *result-set shape* and origin metadata (xref:result-set.adoc[§9]), *de-duplication* policy (xref:deduplication.adoc[§10]) and *partial-results / unresponsive-endpoint* handling (xref:partial-results.adoc[§11]).
+. *Follow-up read and write routing* to the owning CDR, provenance-honest, via `creating_system_id` (xref:follow-up-routing.adoc[§12]).
+. *Authentication/authorization handoff* from client → gateway → node (xref:security.adoc[§13]).
+. The *bindings* that make the above concrete: IHE PIXm/PDQm/XCPD/PMIR/mCSD as the proposed binding (xref:identity-resolution.adoc[§5], xref:localization.adoc[§14], xref:addressing.adoc[§15], xref:annex-a-ihe.adoc[Annex A]), and the Dutch Generic Functions as a regional alternative (xref:annex-b-dutch-gf.adoc[Annex B]).
+. A *Connectathon-style test approach* and a consolidated, testable *conformance-point* list (xref:testing.adoc[§16], xref:conformance.adoc[§17]).
+
+== 2.2 Referenced out (consciously out of scope)
+
+The following are *referenced, not specified* here. The Federation Tier *consumes* these services through the named profiles; their internals are defined by those profiles, not by this document:
+
+* *Identity-resolution mechanics* - how an MPI/PIX Manager cross-references identifiers, and how a demographic match is computed. This spec requires _that_ resolution happens via an identifier cross-reference service and _that_ it happens outside AQL; it does not define the matching algorithm (xref:identity-resolution.adoc[§5], xref:localization.adoc[§14]).
+* *Localization / record-locator internals* - how a locator decides which communities hold data. The spec requires the Tier to consume a node list; it does not build the locator.
+* *Transport security and the trust framework* - TLS, mTLS, certificate/PKI and network trust are assumed and bound via the security profiles (xref:security.adoc[§13], xref:annex-b-dutch-gf.adoc[Annex B]); this document specifies the *identity conveyance* on top of them, not the transport itself.
+* *The demographic service / MPI data model* - owned by the identity/demographic profiles (xref:annex-a-ihe.adoc[Annex A]), not here.
+
+== 2.3 Non-goals (in v1)
+
+* A *federation cannot itself be a node of another federation* (federation-of-federations is deferred; xref:future.adoc[§18]).
+* *New-object creation spanning multiple nodes* is *disallowed in v1*; a new object MUST target one explicitly chosen node (xref:follow-up-routing.adoc[§12]/xref:requirements.adoc#n23[N23]).
+* *Cross-node pagination* across the whole federation is not guaranteed; `LIMIT`/`OFFSET` execute per node and the Application tier reconciles (xref:requirements.adoc#n9[§6/N9], xref:future.adoc[§18]).
+
+== 2.4 Specification vs. realisation (a document convention)
+
+This document deliberately separates *the specification* from *a regional realisation of it*:
+
+* The *normative body (§1–§18)* defines the federation model in terms of *abstract roles* (localization / record locator, addressing / directory, identifier cross-reference, authentication, authorization, consent) and their *proposed IHE binding* (PIXm, PDQm, XCPD, PMIR, mCSD - see xref:annex-a-ihe.adoc[Annex A]). It names a profile as the proposed binding and, at most, gives a *one-line illustrative example* of a role; it does *not* describe any specific product, national service, or deployment in detail.
+* *Concrete, region-specific detail* - the *Dutch Generic Functions* (Mitz/OTV, NVI, LRZa, `did:web`/VC/DPoP, Rego/`mitz_consent`, pseudonymised-BSN localization) and *worked product examples* (e.g. the ACP/Vitaly flow on a pseudonymised id) - lives in *xref:annex-b-dutch-gf.adoc[Annex B] (informative)*.
+
+So when the body says "a localization service returns candidate nodes and a consent decision (proposed binding: IHE XCPD)," the _how_ for a given region - e.g. a record-locator lookup or a consent-service open question - is found in Annex B, not inline. A different region can supply a different Annex B without touching §1–§18.

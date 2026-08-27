@@ -1,0 +1,81 @@
+= 16. Testing (Connectathon approach)
+
+== 16.1 Actors
+
+[cols="1,3"]
+|===
+| Actor | Role
+
+| *Federation Tier (Gateway)*
+| System under test for the gateway profile; presents the openEHR Query API, resolves identity, fans out, combines, routes follow-ups.
+
+| *Node (openEHR CDR + Query API)*
+| System under test for the node profile; runs standard AQL scoped to an `ehr_id`; never receives `subject`.
+
+| *PIX Manager*
+| Resolves `sourceIdentifier → targetSystem` (local `ehr_id`) via PIXm `$ihe-pix` (ITI-83); seeded by ITI-104.
+
+| *Localization service* (optional)
+| Returns candidate nodes + consent (XCPD ITI-55; or a regional service).
+
+| *Client (Consumer)*
+| Drives queries and follow-ups; verifies it needs no federation-specific syntax.
+|===
+
+== 16.2 Two conformance profiles
+
+A system declares conformance to one or both profiles (mirroring the Exchange-Routing IG's two CapabilityStatements, "Intermediary" and "Destination Server"):
+
+* *Federation-Gateway* - implements the transparent façade, Step-1 resolution, fan-out, combine/annotate, dedup policy, partial-results metadata, follow-up read/write routing, and auth conveyance (xref:requirements.adoc#n1[N1]–N27).
+* *Federation-Node* - implements a standard openEHR Query API scoped by `ehr_id`, passes through node-level errors, honours per-node authorization/consent, and *never* requires `subject`.
+
+== 16.3 Test tracks
+
+[cols="1,2,5,2"]
+|===
+| # | Track | Asserts | Key requirements
+
+| 1
+| *Transparency*
+| An unmodified openEHR client queries the gateway with a plain patient AQL and gets a single-CDR-shaped result (no endpoint columns unless selected).
+| xref:requirements.adoc#n1[N1], xref:requirements.adoc#n2[N2], xref:requirements.adoc#n17[N17]
+
+| 2
+| *subject → ehrId resolution*
+| The gateway resolves `subject` to per-node `ehr_id` and dispatches AQL keyed on `ehr_id`; *assert nodes never receive `subject`* (inspect node-side AQL).
+| xref:requirements.adoc#n3[N3], xref:requirements.adoc#n5[N5], xref:requirements.adoc#n7[N7]
+
+| 3
+| *Directed / endpoint pin*
+| `FROM ENDPOINT [...]` (and `ORGANISATION [...]`) select the node set; `not-resolved` list members are reported, not errored; per-node scope stays the resolved `ehr_id`.
+| xref:requirements.adoc#n10[N10], xref:requirements.adoc#n11[N11], xref:endpoint-directive.adoc[§8]
+
+| 4
+| *Partial results*
+| Unresponsive / `not-resolved` / `consent-denied` nodes appear in `meta.endpoints[]` (and an `OperationOutcome` warning/incomplete for FHIR consumers); "found nowhere" → 200 + empty rows; status codes per xref:partial-results.adoc#http-status-mapping[§11.2].
+| xref:requirements.adoc#n6[N6], xref:requirements.adoc#n16[N16], xref:partial-results.adoc[§11]
+
+| 5
+| *Dedup + DISTINCT*
+| Default pass-through leaves duplicates; `DISTINCT` and `ORDER BY` work at the Tier; opt-in `object_id` dedup keeps the originating copy for an imported composition.
+| xref:requirements.adoc#n13[N13], xref:requirements.adoc#n15[N15]
+
+| 6
+| *Follow-up read/write routing*
+| A follow-up read/write for a row routes to the owning CDR via `creating_system_id`; uids are unchanged; a write to an existing object hits exactly the controlling CDR; an unroutable write is rejected.
+| xref:requirements.adoc#n21[N21], xref:requirements.adoc#n22[N22], xref:requirements.adoc#n23[N23]
+
+| 7
+| *Auth conveyance + consent-deny*
+| The gateway authenticates onward and conveys client identity (signed JWT / Backend Services); a node denies on consent and the row set reflects it; sensitive-data decisions are delegated to the node.
+| xref:requirements.adoc#n24[N24], xref:requirements.adoc#n25[N25], xref:requirements.adoc#n26[N26], xref:requirements.adoc#n27[N27]
+
+| 8
+| *PMIR merge/split (ITI-93/94)*
+| An identity merge/split at the identity source propagates so a subsequent federated query resolves the surviving identity. _(Hooks reserved; full propagation MAY be deferred, xref:future.adoc[§18].)_
+| xref:requirements.adoc#n3[N3], xref:future.adoc[§18]
+|===
+
+== 16.4 Process
+
+Run a *peer-to-peer test matrix* (each Gateway against each Node, each Node against each PIX Manager), with *pass/fail logging* per test track and conformance point (Gazelle-style). Each executed test records the conformance points it exercised (xref:conformance.adoc[§17]) so coverage is auditable.

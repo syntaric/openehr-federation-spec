@@ -1,0 +1,40 @@
+= 20. Informative Annex B - Dutch Generic Functions binding (regional alternative)
+
+This annex documents a *regional alternative* to the IHE bindings: the *Netherlands - Generic Functions for data exchange* Implementation Guide (Nuts `nl-generic-functions-ig`, *v0.3.0*, published by Stichting Nuts, package `fhir.nl.gf#0.3.0` on FHIR R4). A Dutch deployment MAY satisfy the normative requirements using these Generic Functions in place of (or alongside) the IHE profiles. The IG's narrative pages are titled _Localization, Care Services Directory, Routing, Consent, Identification, Authentication, Authorization_; in prose the functions are referred to as GF-Localization, GFA (Addressing), GF-Identification, GF-Authentication, GF-Authorization and GF-Consent.
+
+== B.1 GF-Localization (satisfies N4 / §14)
+
+* One national *Medical Record Localization Service*, the *NVI* (_Nationale Verwijs Index_), indexed per data holder by a *Local Metadata Register (LMR)* (the IG allows reusing a data holder's FHIR interface as its LMR).
+* The localization record is a `DocumentReference` (profile _NL-GF-Localization-DocumentReference_) stating "provider X has data of type Y for patient Z"; the patient is identified by a *pseudonymised BSN* (NamingSystem `http://fhir.nl/fhir/NamingSystem/pseudo-bsn`), the type is fixed to LOINC `55188-7` ("Patient data Document"), and the custodian is a *URA*.
+* *Consent is checked with an HTTP `HEAD`* request against the data holder: the HTTP status (e.g. `200 OK`) reveals whether the holder holds data for the patient and consent permits exposure.
+* BSN pseudonymisation uses a national *Pseudonymization Service* (polymorphic pseudonyms; Logius BSNk-pp).
+
+== B.2 GF-Addressing (satisfies N21 / §15)
+
+* The IG's *"Care Services Directory"* follows *IHE mCSD*, using the *LRZa* (_Landelijke Register Zorgaanbieders_) as the master source (the "Root Administration Directory").
+* It distinguishes an *Administration Directory* (write side; an Update Client syncs via FHIR `_history` + `_since`) from a *Query Directory* (read side) - a naming refinement over mCSD's single "Directory."
+* Profiles include _NL-GF-Organization_, _NL-GF-Endpoints_, _NL-GF-HealthcareService_, _NL-GF-Location_, _NL-GF-PractitionerRole_. The Administration Directory requires *mTLS* with qualified (PKIoverheid) certificates.
+* *Reconciliation note (xref:addressing.adoc[§15.2]):* GF `Endpoint`s use `connectionType = hl7-fhir-rest` (one example uses `dicom-wado-rs`). An openEHR Query API endpoint MUST use a *defined openEHR `connectionType`* (e.g. `openehr-rest-query`), not `hl7-fhir-rest` (xref:requirements.adoc#n19[N19], xref:conformance.adoc#cp-20[CP-20]).
+
+== B.3 GF-Identification (supports §5, §15)
+
+* Authentic sources: *patient* by BSN (BRP/RvIG), pseudonymised via `pseudo-bsn`; *practitioner* by UZI/DEZI number (CIBG Dezi-register); *care provider* by *URA* number (CIBG URA-register); *non-care-provider organizations* (e.g. EHR vendors) by *KvK* number (`http://www.kvk.nl/`); care-provider roles by Nictiz role codes (`2.16.840.1.113883.2.4.15.1060`). *Data objects* each get a globally resolvable URL - aligning with the openEHR practice of resolvable version uids (xref:follow-up-routing.adoc[§12]).
+
+== B.4 GF-Authentication (satisfies N24, N25 / §13.1)
+
+* Based on *OAuth 2.0* with the *RFC 7523* JWT authorization-grant + client-authentication-assertion extension (transaction *GFI-004*). The JWT authorization grant carries a *Verifiable Presentation*; the client-authentication assertion conveys the client's own identity.
+* Entity identifiers are `did:web` Decentralized Identifiers (DID 1.0; secured by DNSSEC/HTTPS; transaction *GFI-001*); claims are *Verifiable Credentials 1.1* issued via OpenID4VCI 1.0 (*GFI-002*), with a Bitstring Status List for revocation (*GFI-003*).
+* Access tokens are *sender-constrained with DPoP* (RFC 9449, _Demonstrating Proof-of-Possession at the Application Layer_; transaction *GFI-005*).
+* This is the regional realisation of the White Paper's *Conformance Point #2* (signed-JWT identity conveyance).
+
+== B.5 GF-Authorization (satisfies N26, N27 / §13.2)
+
+* *Policy-Based Access Control (PBAC)*; policies *SHALL be expressed in the Rego policy language* (for unambiguity and automated testing). Implementers need not run Rego in production but the outcome *SHALL match* the specified policy. (The IG names Rego, not "Open Policy Agent"; its reference decision point is the "Knooppunt PDP.")
+* The policy *Context* includes `mitz_consent` - a boolean indicating whether the Mitz consent check allows sharing. The decision output is the Rego `allow` boolean (with optional non-normative `reasons[]`).
+* Authoritative inputs: PKIoverheid certs, CIBG-Dezi, CIBG-LRZa, Vektis (org type), VZVZ-Mitz (consent), Nictiz qualifications; Subject/Resource/Action/Context data model with a Policy Information Point (PIP).
+
+== B.6 GF-Consent (satisfies N27 / §13.2, §14)
+
+* *Mitz* is leading for the national catalogue of consent preferences (the _Mitz afsprakenstelsel_), commonly called the *OTV* (_Online ToestemmingsVoorziening_).
+* Mitz answers a *closed authorization question* (_Gesloten Autorisatievraag_) with an *allow/deny* policy decision; Mitz consents cannot be queried directly. This is the regional realisation of the Step-1 consent gate (xref:requirements.adoc#n27[N27]).
+* Also defined: *DHTV* (_dossierhouderstoestemmingsvoorziening_, a local explicit-consent store, reusing IHE PCF Consent Recorder/Registry actors) and *implicit* consent (_Veronderstelde Toestemming_, NEN 7517).

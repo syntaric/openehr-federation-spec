@@ -1,0 +1,42 @@
+= 7. AQL at the federation façade
+
+There are *two distinct AQL surfaces*, and keeping them distinct is central to the model:
+
+* *Façade AQL* - what the client sends to the Federation Tier. It MAY identify the patient with `WHERE e/ehr_status/subject/external_ref/id/value = <patientId>`. This is standard openEHR AQL; the subject predicate is *interpreted by the gateway*, not forwarded.
+* *Node AQL* - what the gateway dispatches to each node. It is *standard, non-federated* AQL, scoped to that node's *resolved* `ehr_id`. It contains *no* subject predicate.
+
+== 7.1 The rewrite rule (normative)
+
+For each node with a resolved `ehr_id`, the gateway produces the node AQL from the façade AQL by:
+
+. *Substituting the patient predicate* - replace `e/ehr_status/subject/external_ref/id/value = <patientId>` with `e/ehr_id/value = '<resolvedEhrId>'` (equivalently, scope via `FROM EHR e[ehr_id/value='<resolvedEhrId>']`, or send the query to `POST /rest/openehr/v1/query/aql` with the `ehr_id` query parameter / `openehr-ehr-id` header set to the resolved value). All three are legitimate single-EHR scopings; the canonical form in this spec is the `WHERE e/ehr_id/value = …` predicate.
+. *Forwarding everything else unchanged* - all other `WHERE` terms, plus `LIMIT` and `OFFSET`, are passed to the node verbatim (they execute within the node, xref:requirements.adoc#n9[N9]).
+. *Re-injecting the subject column if selected* - if the façade AQL SELECTs the subject path (`e/ehr_status/subject/external_ref/id/value`), the gateway MUST add that column back to each row as a constant `STRING` equal to the *resolution input* `<patientId>`. The value is the _input_, not read from the CDR (nodes may not store it). _(xref:requirements.adoc#n5[N5].)_
+
+*Reduction constraint.* If a façade AQL cannot be reduced to a *single `ehr_id` scope per node* - for example multiple subject predicates OR'd together with non-subject terms such that no single resolved `ehr_id` covers the request - the gateway MUST *reject the query with HTTP 400* rather than guess.
+
+== 7.2 Before → after example
+
+*Façade AQL received* (patient identified the openEHR-idiomatic way):
+
+[source,sql]
+----
+SELECT c/uid/value AS composition_id, c/context/start_time/value AS start_time
+FROM EHR e CONTAINS COMPOSITION c
+WHERE e/ehr_status/subject/external_ref/id/value = '12345'
+  AND c/archetype_node_id = 'openEHR-EHR-COMPOSITION.encounter.v1'
+----
+
+*Node AQL dispatched* (canonical form: `ehr_id` in `WHERE`; the gateway MAY instead scope via `FROM EHR e[ehr_id/value=…]` or the `ehr_id` request parameter):
+
+[source,sql]
+----
+SELECT c/uid/value AS composition_id, c/context/start_time/value AS start_time
+FROM EHR e CONTAINS COMPOSITION c
+WHERE e/ehr_id/value = '550e8400-e29b-41d4-a716-446655440000'
+  AND c/archetype_node_id = 'openEHR-EHR-COMPOSITION.encounter.v1'
+----
+
+Here `'550e8400-…'` is the `ehr_id` that the cross-reference service resolved for `subject = '12345'` *at that particular node*; a different node would receive a *different* `ehr_id`. Because `composition_id` is a `c/uid/value`, it is an `OBJECT_VERSION_ID` and therefore already carries the `creating_system_id` that xref:follow-up-routing.adoc[§12] uses for follow-up routing - no uid rewriting is needed.
+
+If the façade AQL had also SELECTed `e/ehr_status/subject/external_ref/id/value AS patient_id`, the gateway would re-inject `patient_id = '12345'` (the input) into every row, even though no node stores it.
