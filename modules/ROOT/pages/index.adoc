@@ -11,12 +11,6 @@
 This is a working draft circulated for comment. A companion note, xref:changes-from-2025-08-20.adoc[Changes from the 2025-08-20 proposal], records what changed relative to the 2025-08-20 proposal; this document is written to stand on its own as a specification and does not otherwise narrate that history.
 ====
 
-== WG Members for revision
-
-* Remko Nienhuis
-* Joost Holslag
-* Gasper Andrejc
-
 == Referenced documents
 
 This specification references the following documents and sources, which informed several of its design decisions.
