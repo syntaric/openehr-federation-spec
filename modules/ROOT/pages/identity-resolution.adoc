@@ -1,27 +1,73 @@
 = 5. Patient identity resolution (federated patient management)
 
+[#directly-identifying-identifier]
 == 5.1 Why federation is not keyed on `EHR_STATUS.subject`
 
-Storing a national identifier (the BSN) in `EHR_STATUS.subject.external_ref.id` is technically undesirable, for the reasons the MPI advisory sets out in §3, each of which this specification adopts:
+*The class of identifier at issue.* Throughout this specification, a *directly identifying identifier* means any externally issued identifier that names a specific person on its own: a national or civic identifier (a social-security number, a national health number, a citizen-service number), and equally any directly identifying *business or logical* identifier - a patient-administration number, an insurance number, a case number. The property that matters is *direct identifiability outside the node*, not whether the issuer is a state. Where a source quoted below names one country's identifier, the argument it supports is general; the reasoning does not depend on any national scheme.
+
+Storing such an identifier in `EHR_STATUS.subject.external_ref.id` is technically undesirable, for the following reasons - each set out in the MPI advisory §3 and each adopted here:
 
 . *Directly identifying → breach amplification.* All clinical content becomes directly traceable to one person, so "the impact of a data breach becomes exponentially greater" (advisory §3.1.2.1).
 . *It breaks the demographic/clinical separation.* The openEHR reference model "expects identifying data to be located outside the CDR in a Demographic Service or MPI"; `EHR_STATUS.subject.ID` is "intended as a *reference* to a demographic record, not as an identifying personal number itself" (advisory §3.1.2.2). In openEHR RM terms (cited to the RM, not the advisory), `EHR_STATUS.subject` is a `PARTY_SELF` whose `external_ref.id` is an `OBJECT_REF`: a pointer, not a value store.
-. *Versioning makes it permanent/unremovable.* openEHR's versioning means the value "permanently ends up in every version" and is "no longer safely removable", creating a "life-long identifier footprint in all versions" (advisory §3.1.2.3, §3.1.4).
-. *It blocks pseudonymisation / secondary use.* Because the id "cannot be removed without damaging the EHR structure … this blocks secure secondary use" (advisory §3.1.2.4); using the BSN as `subject_id` means "you lose the possibility of secure pseudonymization" (advisory §3.1.2.2).
-. *It fails for patients without a BSN and for international patients.* The approach is "not applicable to international patients or patients without a BSN" and "makes the openEHR environment inflexible … outside the Dutch context" (advisory §3.1.2.5).
-. *It mishandles the identity lifecycle.* It "bypasses the demographic layer", and in merges/splits "the BSN remains unchanged, causing incorrect identities to become permanently embedded" (advisory §3.1.2.6).
+. *It blocks pseudonymisation / secondary use.* Because the id "cannot be removed without damaging the EHR structure … this blocks secure secondary use" (advisory §3.1.2.4); using a directly identifying number as `subject_id` means "you lose the possibility of secure pseudonymization" (advisory §3.1.2.2).
+. *It fails for patients the scheme does not cover.* Any national or civic identifier has a population it does not reach - visitors, cross-border patients, newborns and undocumented patients before enrolment, and anyone enrolled in a different scheme. Keying the model on such an identifier makes it unable to represent those patients at all, and ties the deployment to one jurisdiction. The advisory makes this point in its own national terms: the approach is "not applicable to international patients or patients without a BSN" and "makes the openEHR environment inflexible … outside the Dutch context" (advisory §3.1.2.5).
+. *It mishandles the identity lifecycle.* It "bypasses the demographic layer", and in a merge or split the stored identifier "remains unchanged, causing incorrect identities to become permanently embedded" (advisory §3.1.2.6) - the demographic layer is where identity changes are supposed to be reconciled, and an identifier frozen into clinical version history cannot participate in that reconciliation.
 
-The conclusion adopted here is that *the BSN belongs in an MPI or demographic service, not in the CDR* (advisory §3.1.4): the MPI/demographic component holds all personally identifying information while the CDR stores only clinical data (advisory §3.2). Federation therefore keys on the local `ehr_id`, and the `subject → ehr_id` mapping is performed by an identity service outside the query.
+The conclusion adopted here is that *a directly identifying identifier belongs in an MPI or demographic service, not in the CDR* (advisory §3.1.4): the MPI/demographic component holds all personally identifying information while the CDR stores only clinical data (advisory §3.2). Federation therefore keys on the local `ehr_id`, and the `subject → ehr_id` mapping is performed by an identity service outside the query.
+
+A regional instance of this argument - stated in terms of the Dutch BSN, with the corresponding national services - is in the informative xref:annex-b-dutch-gf.adoc[Annex B].
 
 == 5.2 Resolution model
 
 * The Federation Tier MUST resolve `<patientId>` (with its issuing namespace) to a set of `{node, local ehr_id}` using an *identifier cross-reference service* (proposed binding: *IHE PIXm* `$ihe-pix`, `sourceIdentifier=<patientId>`, `targetSystem=<the domain's ehr_id system>`, with *XCPD* for cross-community discovery and *PMIR* for identity lifecycle as needed). Resolution MUST occur *outside AQL* (xref:requirements.adoc#n3[N3]).
 * For an *undirected* query, the candidate node set and the consent decision MUST come from a *localization / record-locator service* (proposed binding: IHE *XCPD*; regional alternative in xref:annex-b-dutch-gf.adoc[Annex B]). The locator's internals are out of scope (xref:requirements.adoc#n4[N4], xref:localization.adoc[§14]).
-* A national identifier (BSN) MUST NOT be *required* to be stored in `EHR_STATUS.subject` at any node. If a federated result includes a `subject` column, its value is the *re-injected resolution input*, not data read from a CDR (xref:requirements.adoc#n5[N5], xref:aql-facade.adoc[§7]).
+* A directly identifying identifier (§5.1) MUST NOT be *required* to be stored in `EHR_STATUS.subject` at any node. If a federated result includes a `subject` column, its value is the *re-injected resolution input*, not data read from a CDR (xref:requirements.adoc#n5[N5], xref:aql-facade.adoc[§7]).
 * Nodes where the patient is `not-resolved`, or where consent is denied, MUST be recorded in metadata and MUST NOT be queried, and MUST NOT fail the overall query (xref:requirements.adoc#n6[N6]).
 
 `{node, local ehr_id}` denotes a *set of per-node triples*: for each candidate node, the patient's local `ehr_id` (or _not-found_). Only nodes with a resolved `ehr_id` are dispatched to in Step 2. Consent is discussed further in xref:security.adoc[§13.2] and xref:localization.adoc[§14] (in many realisations the localization service returns the consent decision together with the node list).
 
 == 5.3 The demographic input may itself be pseudonymised
 
-Nothing in this model requires `<patientId>` to be a BSN. Because resolution happens outside AQL (§5.2), the presented identifier MAY be a *pseudonymised* id that a node resolves to a local `ehr_id` before running standard AQL - so a node need store *no BSN in the CDR*. A concrete worked example is in *xref:annex-b-dutch-gf.adoc[Annex B §B.7]*.
+Nothing in this model requires `<patientId>` to be a directly identifying identifier at all. Because resolution happens outside AQL (§5.2), the presented identifier MAY be a *pseudonymised* id that the cross-reference service resolves to a local `ehr_id` before any standard AQL runs - so a node need store *no directly identifying identifier in the CDR*. A concrete worked example, on a pseudonymised national identifier, is in *xref:annex-b-dutch-gf.adoc[Annex B §B.7]*.
+
+[#identifier-hygiene]
+== 5.4 Identifier hygiene at fan-out: what a node MUST NOT receive
+=== 5.4.1 The rule
+
+* [[no-identifier-fanout]]*A node MUST receive only the `ehr_id`.* When the gateway dispatches to a node - whether an AQL fan-out (xref:aql-facade.adoc[§7]) or a routed ITS-REST request (xref:rest-facade.adoc[§7a]) - the outbound request MUST NOT contain any directly identifying identifier of the patient (§5.1), in *any* position. The identifier is consumed by resolution (§5.2) and MUST NOT survive into dispatch. _(xref:requirements.adoc#n33[N33].)_
+* This is a *scrubbing* obligation on the gateway, not merely a rewriting one: the gateway MUST inspect the outbound request for the identifier values it resolved on and MUST reject (`400`) rather than dispatch anything it cannot scrub unambiguously.
+
+=== 5.4.2 Where identifiers hide
+
+Beyond `EHR_STATUS.subject.external_ref.id.value`, an identifier can be carried in at least the following, all of which are in scope of §5.4.1:
+
+[cols="2,3"]
+|===
+| Carrier | Why it is a leak path
+
+| `PARTY_IDENTIFIED.identifiers` - a list of `DV_IDENTIFIER` (`id`, `type`, `issuer`, `assigner`)
+| The RM's *general-purpose* identifier slot. It appears wherever a party is named - `COMPOSITION.composer`, `EVENT_CONTEXT.health_care_facility`, `PARTICIPATION.performer`, `INSTRUCTION_DETAILS`, `ATTESTATION.committer` - and it is a *value* store, not a reference. An AQL `WHERE` term or a write payload can carry a directly identifying identifier here just as easily as in `subject`, and unlike `external_ref` there is exactly one obvious place to look.
+
+| `PARTY_RELATED` (a `PARTY_IDENTIFIED` subtype used for subjects of care other than the patient)
+| Same `identifiers` list, applied to relatives - so it can leak a *third party's* identifier.
+
+| AQL `SELECT` paths, `ORDER BY` paths and query parameters
+| An identifier in a projection or a parameter binding is still an identifier on the wire.
+
+|===
+
+=== 5.4.3 Handling (normative)
+
+* [[strip-before-fanout]]The gateway MUST *remove or replace* such identifiers before dispatch. Concretely: a `WHERE` predicate on a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` path that the gateway used as *resolution input* MUST be consumed by resolution and stripped from the node AQL exactly as the `external_ref` predicate is (xref:aql-facade.adoc[§7.1]); a predicate on such a path that the gateway did *not* resolve on, and which carries a directly identifying value, MUST cause the query to be rejected (`400`) rather than forwarded. _(xref:requirements.adoc#n33[N33].)_
+* A gateway MAY accept the identifier in a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate as *alternative resolution input* to `external_ref` - the `issuer`/`type` of the `DV_IDENTIFIER` supplies the issuing namespace that §5.2 requires. Whether or not it does, the outbound rule of §5.4.1 is unchanged.
+* The gateway SHOULD log a scrub or a rejection as a security-relevant event; it MUST NOT log the identifier value itself.
+
+[#node-obligation]
+== 5.5 What the federation asks of a node (and what it does not)
+
+This specification defines an *interface obligation*, not a storage policy. It is deliberately silent on what a node keeps in its own systems.
+
+* [[node-invocation]]*A node is invoked on `ehr_id`.* Membership of a federation obliges a node to accept requests keyed on its own local `ehr_id` and to run standard, non-federated openEHR operations against that `EHR` (xref:requirements.adoc#n7[N7]). Nothing beyond the `ehr_id` is required to reach the data. _(xref:requirements.adoc#n34[N34].)_
+* [[node-exchange]]*The node's environment MUST provide a way to exchange a patient identifier for an `ehr_id`.* For the node to be reachable by an undirected federated query, *something in the node's environment* MUST be able to answer _"which local `ehr_id` corresponds to this patient?"_ - the cross-reference role of §5.2 (proposed binding: IHE PIXm). That capability MAY be provided by the node itself, by an MPI shared by the node's organization, by a regional service, or by the localization service; the federation cares only that the role is filled and reachable, not who fills it. _(xref:requirements.adoc#n34[N34].)_
+* [[no-storage-mandate]]*This specification does NOT mandate where a directly identifying identifier lives, and does not forbid a node from holding one.* Whether a node stores such an identifier - in its patient administration system, in its MPI, or anywhere else - is a matter for that node's own governance, its data-protection obligations and the law applicable to it. It is *outside the concern of this specification*. §5.1 gives strong architectural reasons for keeping such an identifier *out of `EHR_STATUS.subject` in the CDR*, and xref:requirements.adoc#n5[N5] forbids the federation from *requiring* it there - but neither statement is a prohibition on the node.
+* *the federation constrains what crosses the wire between gateway and node (§5.4), and what the federation may require of a node's CDR (N5). It does not constrain a node's internal data management.*

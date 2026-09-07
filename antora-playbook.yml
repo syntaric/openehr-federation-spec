@@ -9,6 +9,10 @@ ui:
   bundle:
     url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
     snapshot: true
+antora:
+  extensions:
+    - require: '@antora/lunr-extension'
+      index_latest_only: true
 output:
   dir: build/site
 runtime:

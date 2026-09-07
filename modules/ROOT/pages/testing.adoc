@@ -26,8 +26,8 @@
 
 A system declares conformance to one or both profiles (mirroring the Exchange-Routing IG's two CapabilityStatements, "Intermediary" and "Destination Server"):
 
-* *Federation-Gateway* - implements the transparent façade, Step-1 resolution, fan-out, combine/annotate, dedup policy, partial-results metadata, follow-up read/write routing, and auth conveyance (xref:requirements.adoc#n1[N1]–N27).
-* *Federation-Node* - implements a standard openEHR Query API scoped by `ehr_id`, passes through node-level errors, honours per-node authorization/consent, and *never* requires `subject`.
+* *Federation-Gateway* - implements the transparent façade and the ITS-REST surface, Step-1 resolution, identifier scrubbing, fan-out, combine/annotate, dedup policy, completeness/timeout semantics, follow-up read/write routing, and auth conveyance (xref:requirements.adoc#n1[N1]–N43).
+* *Federation-Node* - implements a standard openEHR Query API and ITS-REST scoped by `ehr_id`, passes through node-level errors, honours per-node authorization/consent, *never* requires `subject`, and satisfies the federation's admission conditions (xref:membership.adoc#identifier-conditions[§12b.2]).
 
 == 16.3 Test tracks
 
@@ -74,7 +74,24 @@ A system declares conformance to one or both profiles (mirroring the Exchange-Ro
 | *PMIR merge/split (ITI-93/94)*
 | An identity merge/split at the identity source propagates so a subsequent federated query resolves the surviving identity. _(Hooks reserved; full propagation MAY be deferred, xref:future.adoc[§18].)_
 | xref:requirements.adoc#n3[N3], xref:future.adoc[§18]
+
+| 9
+| *REST surface & self-description*
+| An unmodified openEHR client, configured only with the registry base URL, performs a read and a write through the gateway - no `/rest/openehr` or other prefix assumed; both EHR addressing forms work; `+OPTIONS {base}/+` describes the surface and lists the endpoints behind the gateway; write responses carry the acting-endpoint headers with `Location`/`ETag` untouched; DEMOGRAPHIC behaves as declared; `definition` routes to one node (and, if offered, template broadcast reports per node and never reports a partial failure as success).
+| xref:requirements.adoc#n28[N28]–N32, xref:requirements.adoc#n43[N43]
+
+| 10
+| *Identifier leakage (adversarial)*
+| The same directly identifying identifier is supplied five ways - `external_ref` predicate, `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate, `SELECT` projection, query parameter/header, and a write payload's `composer` - and node-side capture is inspected for *any* occurrence of the value. Zero occurrences is a pass; a `400` rejection is a pass; a forwarded value is a *fail*, including in a logged or echoed query. Also asserts the node is invocable on `ehr_id` alone.
+| xref:requirements.adoc#n33[N33], xref:requirements.adoc#n34[N34], xref:requirements.adoc#n5[N5]
+
+| 11
+| *Integrity: `ehr_id` collision & admission conditions*
+| _Gateway:_ a deliberately seeded duplicate `ehr_id` across two nodes yields `409` and an incident, never a served row or an applied write; a write to an ambiguous path `ehr_id` is rejected rather than probed. _Node, at admission:_ candidate nodes are checked against the identifier-integrity conditions of xref:membership.adoc#identifier-conditions[§12b.2] (UUID-v4 generation, no reuse, no adoption of foreign `ehr_id` s, federation-unique `system_id`, and a working patient-identifier → `ehr_id` exchange).
+| xref:requirements.adoc#n41[N41], xref:requirements.adoc#n42[N42], xref:requirements.adoc#n42a[N42a]
 |===
+
+Tracks 10 and 11 are *adversarial*: they are designed to fail a gateway that is merely plausible. Track 10 in particular should be run with node-side wire capture, not with the gateway's own logs - a gateway that scrubs its logs but not its dispatches passes the wrong test.
 
 == 16.4 Process
 

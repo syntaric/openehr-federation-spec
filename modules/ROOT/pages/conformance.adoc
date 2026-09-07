@@ -105,4 +105,79 @@ A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirem
 | An openEHR Query API endpoint uses a defined `connectionType` (e.g. `openehr-rest-query`), not `hl7-fhir-rest` and not an informal string.
 | xref:requirements.adoc#n19[N19]
 | 6
+
+| [[cp-21]]*CP-21*
+| The gateway serves ITS-REST at its declared base URL with *no mandated prefix*; a client configured from the registry works without `/rest/openehr` or any other hard-coded prefix.
+| xref:requirements.adoc#n28[N28]
+| 9
+
+| [[cp-22]]*CP-22*
+| Both EHR addressing forms work: the canonical path `+{base}/v1/ehr/{ehr_id}+` and the AQL predicate `WHERE e/ehr_id/value = …` (and, where supported, `FROM EHR e[ehr_id/value=…]`).
+| xref:requirements.adoc#n29[N29]
+| 9
+
+| [[cp-23]]*CP-23*
+| `+OPTIONS {base}/+` returns the supported/unsupported ITS-REST areas, the accepted targeting mechanisms, dedup mode, timeout policy, *and the member endpoints behind the gateway* - without requiring a patient identifier.
+| xref:requirements.adoc#n30[N30]
+| 9
+
+| [[cp-24]]*CP-24*
+| A routed write returns `openEHR-federation-endpoint` (and SHOULD, `openEHR-federation-system-id`) with `Location`/`ETag` passed through unmodified.
+| xref:requirements.adoc#n31[N31]
+| 9
+
+| [[cp-25]]*CP-25*
+| The DEMOGRAPHIC API is not federated: it is either `501` or single-node-routed, and the behaviour matches what `OPTIONS` declares.
+| xref:requirements.adoc#n32[N32]
+| 9
+
+| [[cp-26]]*CP-26*
+| *No identifier leaks to a node.* With a directly identifying identifier supplied via `external_ref`, via `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, in a projection, in a parameter and in a write payload, node-side capture shows the `ehr_id` and *no* identifier value in any position; unscrubbable requests are rejected `400`, not forwarded.
+| xref:requirements.adoc#n33[N33]
+| 10
+
+| [[cp-27]]*CP-27*
+| A node is invocable on `ehr_id` alone, and its environment answers the patient-identifier → `ehr_id` cross-reference; no requirement is placed on what the node stores internally.
+| xref:requirements.adoc#n34[N34]
+| 10
+
+| [[cp-28]]*CP-28*
+| Endpoint targeting works *both* in AQL and via the `openEHR-federation-endpoint` request header, on the same stored query; conflicting node sets in one request are rejected `400`. A node set offered as a query parameter (`?endpoint=`) is *not* a supported targeting mechanism.
+| xref:requirements.adoc#n35[N35]
+| 3
+
+| [[cp-29]]*CP-29*
+| A write derived from a de-duplicated row reaches the *originating* CDR; a write whose only reachable holder is a copy is rejected `409` rather than forked, and suppressed endpoints stay visible in `meta`.
+| xref:requirements.adoc#n36[N36]
+| 5, 6
+
+| [[cp-30]]*CP-30*
+| Best-effort: with one node down, the query returns `200` with the reachable nodes' rows, `meta.complete = false`, and the failed node reported. Opt-in all-or-nothing, where offered, fails the whole query instead.
+| xref:requirements.adoc#n37[N37]
+| 4
+
+| [[cp-31]]*CP-31*
+| Timeouts are bounded and visible: a slow node is abandoned at the declared per-node timeout and marked `time-out` (never reported as empty), the overall budget is honoured, `latency_ms` is reported per endpoint, and a client `Prefer: wait=` can shorten but not extend the budget.
+| xref:requirements.adoc#n38[N38], xref:requirements.adoc#n40[N40]
+| 4
+
+| [[cp-32]]*CP-32*
+| Cross-node result shaping is correct: `ORDER BY` + `LIMIT n` returns the *global* top `n` deterministically; `OFFSET > 0` is rejected or computed correctly (never silently pushed down); an undirected aggregate is rejected `400` with a reason and never answered with per-node aggregate rows.
+| xref:requirements.adoc#n39[N39], xref:requirements.adoc#n14[N14]
+| 5
+
+| [[cp-33]]*CP-33*
+| _(Gateway.)_ `ehr_id` routing and integrity: a path `ehr_id` routes by explicit target / binding / index, a write is rejected `400` rather than ask-all-probed, and an `ehr_id` claimed by two nodes yields `409` plus an integrity incident - never a guess.
+| xref:requirements.adoc#n41[N41], xref:requirements.adoc#n42[N42]
+| 6, 11
+
+| [[cp-33a]]*CP-33a*
+| _(Federation operator / candidate node.)_ Admission conditions exist and are applied (xref:membership.adoc#identifier-conditions[§12b.2]): a candidate node demonstrates UUID-v4 (or equivalent) `ehr_id` generation, no `ehr_id` reuse across restores/migrations, no adoption of foreign `ehr_id` s on import, a `system_id` unique in the federation, and a working patient-identifier → `ehr_id` exchange. Verified at admission, not per request.
+| xref:requirements.adoc#n42a[N42a]
+| 11
+
+| [[cp-34]]*CP-34*
+| Definition handling: `+{base}/v1/definition/…+` routes to one explicitly chosen node and no merged catalogue is presented; where fan-out template upload is offered it is explicit, per-node reported, and a partial failure is reported as partial - never as success.
+| xref:requirements.adoc#n43[N43]
+| 9
 |===

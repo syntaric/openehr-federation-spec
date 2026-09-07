@@ -65,6 +65,67 @@ The Tier maps errors as follows, aligning with the Exchange-Routing IG's excepti
 
 If *no* node resolves the patient (all `not-resolved`), the correct response is *HTTP 200 with an empty `rows` array and an explanatory `meta`* (every endpoint `not-resolved`), *not* a 404. A 404 is reserved for a gateway that cannot resolve a request to _any_ destination at all. This distinguishes "the patient legitimately has no record in this federation" from "the request was unroutable."
 
-== 11.4 Asynchronous long-running queries (optional)
+== 11.4 Best-effort is the default completion strategy (normative)
 
-For long fan-outs, the Tier MAY support the Exchange-Routing async pattern: the client sends `Prefer: respond-async`; the Tier replies *202 Accepted* with a `Content-Location` polling URL; the client polls until *200 OK* with the result. This is OPTIONAL and does not change the result envelope (xref:result-set.adoc[§9]).
+A fan-out has to decide what to do when *some* nodes answer. This specification makes that decision explicit rather than leaving it to implementers, because a client cannot interpret a result set without knowing which rule produced it.
+
+* [[best-effort]]*The default strategy is best-effort:* the gateway returns the rows it obtained from the nodes that answered within the timeout budget (§11.5), reports every other node in `meta.endpoints[]` with its status, and responds `200`. A partial answer is a *successful* response with an incomplete-coverage marker - not an error. _(xref:requirements.adoc#n37[N37].)_
+* [[completeness-flag]]The gateway MUST make incompleteness *machine-detectable*, not merely inferable by scanning statuses. `meta` MUST carry a `complete` boolean, `true` only when every in-scope node reached status `active`. For FHIR-facing consumers this is additionally surfaced as an `OperationOutcome` warning (xref:conformance.adoc#cp-12[CP-12]). _(xref:requirements.adoc#n37[N37].)_
+* [[all-or-nothing]]A deployment MAY offer a stricter *all-or-nothing* mode, in which any node not reaching `active` causes the whole query to fail (`504`, or `424 Failed Dependency`) rather than return partial rows. If offered it MUST be *opt-in per request* - the `openEHR-federation-completeness: all` request header - and MUST be declared in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]). It MUST NOT be the default: silently failing a whole clinical query because one of nine nodes is slow is worse for the clinician than a flagged partial answer.
+* Best-effort applies to *reads*. It does *not* apply to writes: a write is routed to exactly one node (xref:follow-up-routing.adoc[§12.4]) and either succeeds or fails there - there is no partial write in v1.
+* A node that returns an *error* (as opposed to not answering) is treated the same way for completeness purposes: it contributes no rows, appears with a status and the node's error, and clears `meta.complete`.
+
+[#timeouts]
+== 11.5 Timeouts (normative)
+
+Timeouts are *in scope*. Leaving them to implementers would make the completeness semantics of §11.4 untestable, and a client cannot set its own deadline against a gateway whose behaviour it cannot predict. What this specification fixes is the *decision structure and its visibility*; it does not fix the *numbers*, which are a deployment matter.
+
+* [[timeout-budget]]A gateway MUST operate with (a) a *per-node timeout* and (b) an *overall query budget*, and MUST apply both. When a node exceeds the per-node timeout, the gateway MUST abandon that node, mark it `time-out` in `meta.endpoints[]`, and continue with the rest. When the overall budget expires, the gateway MUST stop waiting for all outstanding nodes, mark each `time-out`, and return what it has under §11.4. _(xref:requirements.adoc#n38[N38].)_
+* [[timeout-declared]]The values in force MUST be *discoverable*: `+OPTIONS {base}/+` reports `timeout.per_node_ms` and `timeout.overall_ms` (xref:rest-facade.adoc#options-root[§7a.2]), and every response MUST report, per endpoint, the elapsed time the gateway observed (xref:result-set.adoc#endpoint-meta[§9.4]). _(xref:requirements.adoc#n38[N38].)_
+* [[client-deadline]]A client MAY request a shorter budget with the standard `Prefer: wait=<seconds>` header. The gateway MUST honour a *shorter* client budget and MUST NOT extend beyond its own overall budget on a client's request - a client cannot lengthen the gateway's deadline. The effective budget MUST be reported in `meta`.
+* The gateway MUST NOT let a node's timeout cascade: abandoning a node MUST NOT abort in-flight requests to other nodes.
+* *What a client can rely on.* A conformant gateway will answer within its declared overall budget (plus combining time); the answer may be partial; `meta.complete` and `meta.endpoints[]` say exactly which nodes are missing and why; and a `time-out` node means *unknown*, never *no data*. A client MUST NOT interpret a `time-out` endpoint as an empty result - that distinction is the whole reason the status set exists.
+* A node that answers *after* being abandoned MUST be ignored; the gateway MUST NOT emit rows outside the response it already returned. (An async request, §11.7, is the supported way to wait longer.)
+
+[#aggregation-and-ordering]
+== 11.6 Ordering, `LIMIT`, and aggregation across nodes (normative)
+
+`ORDER BY`, `LIMIT`/`OFFSET` and aggregate functions each execute *inside* a node (xref:requirements.adoc#n9[N9]), which is precisely why they cannot be taken at face value across a fan-out. The three cases have three different answers.
+
+=== 11.6.1 `ORDER BY` + `LIMIT` - re-executed at the Tier
+
+A federated `LIMIT n` cannot be pushed down as `LIMIT n` and then concatenated: taking the first `n` rows of each node's *locally* ordered set and concatenating them yields a set that is neither globally ordered nor the global top `n`.
+
+* [[limit-reorder]]For a query with `ORDER BY` and `LIMIT n` (no `OFFSET`), the gateway MUST dispatch `LIMIT n` *to each node*, then apply the `ORDER BY` *across the merged rows* and finally apply `LIMIT n` to the merged, re-ordered set. Dispatching `n` per node is what makes this correct: the global top `n` under a total order is necessarily contained in the union of the per-node top `n`. _(xref:requirements.adoc#n39[N39].)_
+* The gateway MUST apply `ORDER BY` at the Tier whenever more than one node contributed rows, even if it also pushed it down (xref:requirements.adoc#n13[N13]). Pushing down is an optimisation; the merge is what makes the order true.
+* Ordering MUST be *deterministic*: where the `ORDER BY` keys tie, the gateway MUST break the tie on a stable secondary key (RECOMMENDED: `endpoint_id`, then uid) so that repeating a query returns rows in the same order.
+
+=== 11.6.2 `OFFSET` - not correct across nodes
+
+* [[offset-limit]]`LIMIT n OFFSET k` with `k > 0` *cannot* be made correct by the same trick: the global rows `k…k+n` are not contained in the per-node rows `k…k+n`. A gateway MUST NOT silently push `OFFSET` down and present the result as a correct global page. It MUST either
++
+--
+. reject the query with `400` and an error stating that offset-based paging is not supported across a fan-out; or
+. compute the page correctly by retrieving *`k + n` rows per node*, merging, ordering and slicing - permitted only where the gateway can bound `k + n` (it MUST reject when it cannot); or
+. serve the page from a *materialised, ordered result* it is holding for that query (§11.6.4).
+--
++
+Whichever it does, it MUST declare which in `+OPTIONS {base}/+`. _(xref:requirements.adoc#n39[N39].)_
+* This is the concrete form of the "cross-node pagination is not guaranteed" non-goal (xref:scope.adoc[§2.3]): not guaranteed means *not silently wrong* - a gateway must refuse or be correct, never approximate.
+
+=== 11.6.3 Aggregates - the query is wrong, not the gateway
+
+`COUNT`, `SUM`, `AVG`, `MIN`, `MAX` fanned out and concatenated produce *one row per node*, not one aggregate. Summing them is right for `COUNT`/`SUM`, wrong for `AVG`, and right-by-accident for `MIN`/`MAX` only if the gateway knows to re-apply the function rather than concatenate.
+
+* [[aggregate-block]]Per xref:requirements.adoc#n14[N14] an *undirected* aggregate MUST be blocked. The gateway MUST reject it with `400` and an error that says *why* - that the aggregate cannot be computed correctly across the fan-out - and SHOULD suggest the two supported alternatives: pin the query to one node (xref:endpoint-directive.adoc[§8]), or select the underlying rows and aggregate in the application. Returning per-node aggregate rows as if they were the answer is *forbidden*: it is the one failure mode here that a client cannot detect. _(xref:requirements.adoc#n39[N39].)_
+* A *directed single-node* aggregate is permitted and is dispatched unchanged (xref:requirements.adoc#n14[N14]).
+* A gateway MAY additionally support *decomposable* aggregates over multiple nodes - `COUNT` and `SUM` (sum the per-node results), `MIN`/`MAX` (re-apply across them) - provided the result is *exactly* correct and the aggregate is not combined with `DISTINCT`, `GROUP BY` on a dimension that spans nodes, or de-duplication (§10), any of which breaks decomposability. `AVG` MUST NOT be decomposed this way unless the gateway also retrieves the per-node counts. If a gateway supports this, it MUST declare which functions in `+OPTIONS {base}/+`; if it does not, the rule above applies unchanged.
+* `GROUP BY` follows the same logic: groups from different nodes with the same key MUST be merged at the Tier, or the query MUST be rejected. Emitting the same group key twice is a wrong answer.
+
+=== 11.6.4 Materialised result sets (optional)
+
+A gateway MAY hold an ordered, merged result set for a bounded period and serve `OFFSET`-based pages from it (a cursor). If it does, `meta` MUST carry the cursor handle and its expiry, and the gateway MUST NOT re-run the fan-out mid-cursor - a page served from a re-run is not a page of the same result. This is OPTIONAL and is how a deployment can offer honest cross-node pagination today; a general solution is deferred (xref:future.adoc[§18]).
+
+== 11.7 Asynchronous long-running queries (optional)
+
+For long fan-outs, the Tier MAY support the Exchange-Routing async pattern: the client sends `Prefer: respond-async`; the Tier replies *202 Accepted* with a `Content-Location` polling URL; the client polls until *200 OK* with the result. This is OPTIONAL and does not change the result envelope (xref:result-set.adoc[§9]). Async is the supported way to exceed the synchronous budget of §11.5; it does not exempt the gateway from that budget on ordinary requests.

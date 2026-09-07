@@ -3,10 +3,14 @@
 == 2.1 In scope
 
 . The *façade contract*: accepting a conformant openEHR AQL query that MAY identify the patient by `ehr_status/subject`, and behaving as a technically transparent intermediary (xref:aql-facade.adoc[§7], xref:requirements.adoc#n1[§6/N1–N2]).
+. The *REST surface*: the openEHR ITS-REST API as a whole, read and write - which parts fan out, which are routed to a single node, and which are explicitly *not* supported (notably DEMOGRAPHIC and, in v1, federated Definition management) - plus base-URL/prefix neutrality and gateway self-description via `OPTIONS` (xref:rest-facade.adoc[§7a], xref:requirements.adoc#n28[§6/N28–N32]).
+. *Identifier hygiene at dispatch*: a node receives the `ehr_id` and no directly identifying patient identifier, in any carrier (xref:identity-resolution.adoc#identifier-hygiene[§5.4], xref:requirements.adoc#n33[§6/N33]).
 . The *two/three-step execution model*: resolve `subject → {node, ehr_id}`, fan out *standard* AQL keyed on `ehr_id`, then combine/annotate (xref:reference-flow.adoc[§4], xref:requirements.adoc[§6], xref:aql-facade.adoc[§7]).
 . The *optional AQL extension* (`FROM ENDPOINT …` / `ORGANISATION …`) for pinning a query to named systems and surfacing provenance - decoupled from patient resolution (xref:endpoint-directive.adoc[§8]).
 . The *result-set shape* and origin metadata (xref:result-set.adoc[§9]), *de-duplication* policy (xref:deduplication.adoc[§10]) and *partial-results / unresponsive-endpoint* handling (xref:partial-results.adoc[§11]).
-. *Follow-up read and write routing* to the owning CDR, provenance-honest, via `creating_system_id` (xref:follow-up-routing.adoc[§12]).
+. *Follow-up read and write routing* to the owning CDR, provenance-honest, via `creating_system_id` - including `ehr_id`-path routing and `ehr_id` collision handling (xref:follow-up-routing.adoc[§12]), on the routing-key rules of xref:identifiers.adoc[§12a].
+. *Completeness semantics*: best-effort as the default, an explicit timeout structure, and correct cross-node `ORDER BY`/`LIMIT`/aggregate handling (xref:partial-results.adoc[§11.4–§11.6]).
+. The *identifier-integrity conditions for admitting a node* to a federation - the membership-level prevention of the routing failures §12 can only detect (xref:membership.adoc[§12b]). Broader admission criteria and the membership lifecycle are *not* settled here (xref:membership.adoc[§12b.3], xref:future.adoc[§18]).
 . *Authentication/authorization handoff* from client → gateway → node (xref:security.adoc[§13]).
 . The *bindings* that make the above concrete: IHE PIXm/PDQm/XCPD/PMIR/mCSD as the proposed binding (xref:identity-resolution.adoc[§5], xref:localization.adoc[§14], xref:addressing.adoc[§15], xref:annex-a-ihe.adoc[Annex A]), and the Dutch Generic Functions as a regional alternative (xref:annex-b-dutch-gf.adoc[Annex B]).
 . A *Connectathon-style test approach* and a consolidated, testable *conformance-point* list (xref:testing.adoc[§16], xref:conformance.adoc[§17]).
@@ -23,8 +27,10 @@ The following are *referenced, not specified* here. The Federation Tier *consume
 == 2.3 Non-goals (in v1)
 
 * A *federation cannot itself be a node of another federation* (federation-of-federations is deferred; xref:future.adoc[§18]).
-* *New-object creation spanning multiple nodes* is *disallowed in v1*; a new object MUST target one explicitly chosen node (xref:follow-up-routing.adoc[§12]/xref:requirements.adoc#n23[N23]).
-* *Cross-node pagination* across the whole federation is not guaranteed; `LIMIT`/`OFFSET` execute per node and the Application tier reconciles (xref:requirements.adoc#n9[§6/N9], xref:future.adoc[§18]).
+* *New-object creation spanning multiple nodes* is *disallowed in v1*; a new object MUST target one explicitly chosen node (xref:follow-up-routing.adoc[§12]/xref:requirements.adoc#n23[N23]). The single exception is *optional template broadcast*, which is idempotent and carries no patient data (xref:follow-up-routing.adoc#definition-routing[§12.6]/xref:requirements.adoc#n43[N43]).
+* *Cross-node `OFFSET` pagination* is not guaranteed. Where it is not supported the gateway *rejects* rather than approximates (xref:partial-results.adoc#offset-limit[§11.6.2]); `ORDER BY` + `LIMIT` *is* made correct at the Tier (xref:requirements.adoc#n39[N39]), and a general stable-pagination solution is deferred (xref:future.adoc[§18]).
+* *Federated demographics.* The openEHR DEMOGRAPHIC API is not federated; identity lives in an MPI/demographic service reached through the identity binding (xref:rest-facade.adoc[§7a.1], xref:requirements.adoc#n32[N32]).
+* *Convergence of imported copies.* A write reaches the owning CDR only; propagating it to nodes holding imported copies is not specified (xref:deduplication.adoc#update-routing-hazard[§10.3], xref:future.adoc[§18]).
 
 == 2.4 Specification vs. realisation (a document convention)
 

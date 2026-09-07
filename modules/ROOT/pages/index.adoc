@@ -1,7 +1,7 @@
 = Proposal for Federation Tier with AQL - revised
 :navtitle: Overview
 
-*Status:* Draft for review · *Version:* 0.2 (revised) · *Date:* 2026-08-02 ·
+*Status:* Draft for review · *Version:* 0.3 (revised) · *Date:* 2026-09-04 ·
 *Supersedes:* _Proposal for Federation Tier with AQL_, openEHR Federation Working Group, 2025-08-20 ·
 *License:* Creative Commons Zero v1.0 Universal (CC0)
 
@@ -26,7 +26,7 @@ This specification references the following documents and sources, which informe
 | Façade transparency; the four follow-up-routing approaches; de-duplication provenance; unresponsive-server handling; auth conveyance; numbered Conformance Points.
 
 | https://drive.google.com/file/d/1COoXE0kU1MqO9JNDTO67SForWo8rRtqg/view?usp=drive_link[_Identity management in a distributed openEHR architecture_ (Adviesrapport openEHR federatie MPI), I. Schoonbrood, 2026]
-| A proposal for handling patient identity in a distributed openEHR architecture: why a national identifier should not be stored in `EHR_STATUS.subject`, how to map identity resolution onto IHE PIXm/PDQm/XCPD/PMIR, and the end-to-end ITI flow.
+| A proposal for handling patient identity in a distributed openEHR architecture: why a directly identifying identifier should not be stored in `EHR_STATUS.subject`, how to map identity resolution onto IHE PIXm/PDQm/XCPD/PMIR, and the end-to-end ITI flow.
 
 | https://github.com/RSO-Zuid-Limburg/Public-documentation/blob/main/RSO%20data%20strategy.docx[_RSO Zuid-Limburg data (liberation) strategy_]
 | The rationale for a distributed CDR architecture in the Netherlands - why data stays under each provider's control, the benefits for privacy and consent, per-node consent responsibility, and the centralized-vs-distributed gateway trade-off.
@@ -44,7 +44,7 @@ This specification incorporates a *Federation Tier* into openEHR querying, enabl
 
 A *federation* is a *virtual repository* built from a securely connected group of nodes that hold vendor-neutral, openEHR-modelled health data and expose openEHR Query (AQL) APIs. Clients reach it through the Federation Tier, implemented by one or more gateways.
 
-It is a technically *transparent intermediary*: a client MUST be able to send it a conformant openEHR AQL query and follow-up requests *without knowing it is federated*.
+It is a technically *transparent intermediary*: a client MUST be able to send it a conformant openEHR AQL query and follow-up requests *without knowing it is federated*. Transparency spans the *whole openEHR ITS-REST surface*, read and write - not AQL alone - with the parts that are *not* federated (notably DEMOGRAPHIC, and Definition management in v1) stated explicitly rather than left to be discovered (xref:rest-facade.adoc[§7a]).
 
 The architecture has three tiers:
 
@@ -61,6 +61,9 @@ Federation keys on the per-node local `ehr_id`, and identity resolution happens 
 * *Before* any query is dispatched, the gateway *resolves the patient identifier to a set of `{node, local ehr_id}`* using an *identity/localization service outside AQL* (proposed binding: IHE PIXm, with XCPD/PMIR as needed; a region MAY use national services such as a record-locator or consent service - see xref:annex-b-dutch-gf.adoc[Annex B]).
 * The gateway then dispatches *standard, non-federated AQL scoped to each node's resolved `ehr_id`*, combines the rows, applies federation `DISTINCT`/`ORDER BY`, and annotates each row with *endpoint provenance*. The combined result lets the Application tier interpret results and take follow-up actions (reads and writes) on a specific node.
 
-A single node can be a member of more than one federation and can expose more than one `ENDPOINT` (e.g. for different connection types). `EHR.system_id` is a *local* identifier of the logical EHR-management system in which an `EHR` was created.
+Crucially, the `ehr_id` is *all* a node receives: the patient identifier used for resolution - and any other directly identifying identifier, wherever in the request it sits - is consumed at the gateway and MUST NOT be dispatched onward (xref:identity-resolution.adoc#identifier-hygiene[§5.4]).
+
+A single node can be a member of more than one federation and can expose more than one `ENDPOINT` (e.g. for different connection types). `EHR.system_id` is a *local* identifier of the logical EHR-management system in which an `EHR` was created. Four identifiers circulate in a federation - `node_id`, `endpoint_id`, `system_id` and `creating_system_id` - and they route different things; they are defined in xref:terminology.adoc#the-four-identifiers[§ The four identifiers] and xref:identifiers.adoc[§12a] fixes which one governs which request.
 
 The rationale for keying on `ehr_id` rather than `subject`, and for placing identity resolution outside the federated query, is given in xref:identity-resolution.adoc[§5].
+

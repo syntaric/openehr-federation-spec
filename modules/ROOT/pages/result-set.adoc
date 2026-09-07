@@ -43,12 +43,76 @@ Including `system_id` in the row-level attribute set puts the *openEHR-native ro
     { "endpoint_id": "node_2", "system_id": "cdr2.rso.nl", "composition_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8::cdr2.rso.nl::1" }
   ],
   "meta": {
+    "complete": true,
     "endpoints": [
-      { "id": "node_1", "system_id": "cdr1.rso.nl", "organisation": "Org A", "url": "https://ehr.hospital-a.example/openehr/v1", "status": "active" },
-      { "id": "node_2", "system_id": "cdr2.rso.nl", "organisation": "Org B", "url": "https://ehr.clinic-b.example/openehr/v1", "status": "active" }
+      { "id": "node_1", "node_id": "node_1", "system_id": "cdr1.rso.nl", "organisation": "Org A",
+        "url": "https://ehr.hospital-a.example/openehr/v1", "status": "active",
+        "latency_ms": 118, "product": "VendorX CDR", "version": "3.4.1", "row_count": 1 },
+      { "id": "node_2", "node_id": "node_2", "system_id": "cdr2.rso.nl", "organisation": "Org B",
+        "url": "https://ehr.clinic-b.example/openehr/v1", "status": "active",
+        "latency_ms": 306, "product": "VendorY", "version": "2026.1", "row_count": 1 }
     ]
   }
 }
 ----
 
 Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`) - this is what xref:follow-up-routing.adoc[§12] routes on.
+
+[#endpoint-meta]
+== 9.4 `meta.endpoints[]` fields
+
+`meta.endpoints[]` is the per-node record of what happened, and it is the *normative* carrier for coverage information (xref:partial-results.adoc[§11.1]). Every in-scope node appears, whether or not it contributed rows.
+
+[cols="1,1,3"]
+|===
+| Field | | Meaning
+
+| `id`
+| MUST
+| The `endpoint_id` - the stable registry identifier of the endpoint that was addressed (xref:terminology.adoc#endpoint-id[§ The four identifiers]).
+
+| `status`
+| MUST
+| One of the statuses in xref:partial-results.adoc[§11.1].
+
+| `node_id`
+| SHOULD
+| The owning node (xref:terminology.adoc#node-id[§ The four identifiers]). Distinguishes two endpoints of the same node.
+
+| `system_id`
+| SHOULD
+| The node's openEHR `system_id`, where known (xref:terminology.adoc#system-id[§ The four identifiers]).
+
+| `organisation`
+| SHOULD
+| The managing Organization (xref:requirements.adoc#n20[N20]).
+
+| `error`
+| MUST, when `status` is an error
+| The node-reported or gateway-reported error (xref:partial-results.adoc#http-status-mapping[§11.2]).
+
+| [[meta-latency]]`latency_ms`
+| MUST
+| Wall-clock time the *gateway* observed for its request to this endpoint, in milliseconds. For a `time-out` endpoint this is the elapsed time at abandonment (xref:partial-results.adoc#timeouts[§11.5]). This is the gateway's own measurement, not the node's self-report. _(xref:requirements.adoc#n40[N40].)_
+
+| [[meta-version]]`product` / `version`
+| SHOULD
+| The node's product name and version, as the gateway knows them - from the registry, from the node's own capability/`OPTIONS` response, or from cached discovery. Absent when unknown; a gateway MUST NOT invent them. _(xref:requirements.adoc#n40[N40].)_
+
+| `row_count`
+| SHOULD
+| Rows this endpoint contributed *before* federation-level `DISTINCT`, dedup (xref:deduplication.adoc[§10]) and `LIMIT` (xref:partial-results.adoc#aggregation-and-ordering[§11.6]). Makes suppression auditable.
+
+| `url`
+| MAY
+| The CDR base URL. MAY be omitted from rows and left here.
+|===
+
+`meta` itself MUST additionally carry `complete` (xref:partial-results.adoc#completeness-flag[§11.4]) and SHOULD carry the effective timeout budget in force for the request (xref:partial-results.adoc#timeouts[§11.5]).
+
+Why latency and version belong here: a federated query is only as good as its slowest and its oldest member, and an operator debugging *"why is this slow"* or *"why does node 3 not support this AQL feature"* otherwise has to correlate gateway logs by hand. The same fields appear, in aggregate form, in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]).
+
+[#response-headers]
+== 9.5 Responses with no envelope: headers
+
+An AQL response carries `meta`. A *write* or a *routed ITS-REST read* does not - a `201 Created` has only headers. The provenance that `meta.endpoints[]` carries for a query is therefore carried by the `openEHR-federation-endpoint` / `openEHR-federation-system-id` response headers on those requests; see xref:rest-facade.adoc#write-headers[§7a.3] and xref:requirements.adoc#n31[N31].

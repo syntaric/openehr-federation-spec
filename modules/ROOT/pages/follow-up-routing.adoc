@@ -47,5 +47,57 @@ The Tier then forwards the read to that CDR's base URL and returns the result. o
 == 12.4 Follow-up writes (normative)
 
 * A *versioned write* (a `CONTRIBUTION`/commit against an *existing* object) MUST be routed to the *single controlling CDR* - the one whose `system_id` equals the `creating_system_id` of the target object. The Tier MUST *reject* (400) a write it cannot unambiguously route (xref:requirements.adoc#n23[N23]).
-* *New-object creation* MUST target an *explicitly chosen* node - named via `FROM ENDPOINT` or an equivalent target parameter (xref:endpoint-directive.adoc[§8]). Creating a new object that spans multiple nodes is *disallowed in v1* (xref:scope.adoc[§2.3]), matching the White Paper's "Handling new records" caution that a façade needs a definite rule and multi-server references might not be allowed.
+* *New-object creation* MUST target an *explicitly chosen* node - named via `FROM ENDPOINT` or the equivalent `openEHR-federation-endpoint` header (xref:endpoint-directive.adoc[§8]). Creating a new object that spans multiple nodes is *disallowed in v1* (xref:scope.adoc[§2.3]), matching the White Paper's "Handling new records" caution that a façade needs a definite rule and multi-server references might not be allowed.
 * On every write, the Tier MUST convey the authenticated client identity to the target CDR (xref:requirements.adoc#n24[N24], xref:security.adoc[§13]).
+* A write derived from a *de-duplicated* row is routed by these same rules, and MUST NOT be sent to a node that merely holds an imported copy - see the hazard in xref:deduplication.adoc#update-routing-hazard[§10.3].
+* The *explicitly chosen* node for a new object MAY be named by the `FROM ENDPOINT` directive, by the `openEHR-federation-endpoint` header, or by the request path (xref:endpoint-directive.adoc#header-alternative[§8.4]); for a non-AQL write the header or path is the only available mechanism.
+
+[#ehr-id-routing]
+== 12.5 Routing `+{base}/v1/ehr/{ehr_id}/…+` and the `ehr_id` collision problem
+
+Every ITS-REST resource below `+{base}/v1/ehr/{ehr_id}+` is addressed by an `ehr_id` in the *path*. Unlike an `OBJECT_VERSION_ID`, an `ehr_id` is a bare `HIER_OBJECT_ID`: *it carries no system component*. It is meaningless outside the CDR that issued it (xref:terminology.adoc[§ Key terms]). So a `+PUT {base}/v1/ehr/7f4c…/composition/…+` arriving at a gateway is, on its face, ambiguous.
+
+=== 12.5.1 How the gateway resolves it (normative)
+
+* [[ehr-id-route-order]]The gateway MUST determine the owning node for a path `ehr_id` in this priority order, and MUST NOT skip to a later step while an earlier one yields an unambiguous answer:
++
+--
+. An *explicit target* on the request - `openEHR-federation-endpoint` (xref:endpoint-directive.adoc#header-alternative[§8.4]). This is the unambiguous case and is *RECOMMENDED for all clients doing follow-ups*: the row the client is acting on carried its `endpoint_id` (xref:result-set.adoc[§9.2]), so the client already knows the answer and should say so.
+. A *resolution binding* the gateway holds for this client session - the `{node, ehr_id}` set from a preceding Step-1 resolution (xref:identity-resolution.adoc[§5.2]).
+. The gateway's *`ehr_id` → node index*, where it maintains one.
+. An *ask-all* probe (`+GET {base}/v1/ehr/{ehr_id}+` at each member node), for *reads only*.
+--
++
+_(xref:requirements.adoc#n41[N41].)_
+* [[ehr-id-write-explicit]]For *writes*, ask-all MUST NOT be used to disambiguate. If steps 1–3 do not yield exactly one node, the gateway MUST reject with `400` and require an explicit target. A write is not something to discover a destination for by trial. _(xref:requirements.adoc#n41[N41].)_
+
+=== 12.5.2 When two nodes claim the same `ehr_id`
+
+Because `ehr_id` values are node-local, *nothing in openEHR prevents two CDRs from holding the same `ehr_id` for two different patients*. In practice this is vanishingly rare - `ehr_id` s are UUIDs, but still possible.
+
+* [[ehr-id-collision]]If an ask-all probe (§12.5.1 step 4) finds the same `ehr_id` at more than one node, the gateway MUST NOT choose between them. It MUST fail the request with `409 Conflict`, listing the claiming endpoints, and MUST raise this as an operational incident to the federation operator - a collision is a *federation integrity defect*, not a routine client error. _(xref:requirements.adoc#n42[N42].)_
+* The gateway MUST NOT use "the node where this patient resolved" to break a collision *tie* unless resolution produced exactly one candidate; a collision between two nodes where the patient resolves at both is precisely the case where guessing is most dangerous.
+* A collision detected on a *read* is equally reportable: returning either node's data would be returning an unidentified patient's record.
+
+=== 12.5.3 Prevention belongs to membership
+
+In order to prevent these collisions, rules for joining a federation are drafted in: xref:membership.adoc#identifier-conditions[§12b.2].
+
+[#definition-routing]
+== 12.6 Definitions, templates and stored queries
+
+An application that stores a template at one node and then commits a `COMPOSITION` against that template at *another* node gets a validation failure - the second node has never seen the template. This is a real and easily-hit failure mode of a transparent façade, because the client believes it is talking to one repository.
+
+* [[definition-single-node]]A gateway MUST route each `+{base}/v1/definition/…+` request (template upload/retrieval, stored-query management) to a *single, explicitly chosen* node (xref:rest-facade.adoc[§7a.1]). It MUST NOT pick a node implicitly, and it MUST NOT present a union of nodes' templates as though it were one catalogue - a client cannot act on a catalogue whose entries live in different places. _(xref:requirements.adoc#n43[N43].)_
+* [[template-fanout]]A gateway MAY support *fan-out template upload*: a single `PUT` of an OPT/ADL template is applied to *all* member nodes (or to a named subset), so that a subsequent `COMPOSITION` commit validates wherever it lands. If offered, it MUST be:
++
+--
+. *opt-in and explicit* - a distinct request (RECOMMENDED: `openEHR-federation-endpoint: *`, or an explicit multi-endpoint list), never the default interpretation of a plain `PUT`;
+. *reported per node* - the response MUST carry a per-endpoint outcome in the same shape as `meta.endpoints[]` (xref:result-set.adoc#endpoint-meta[§9.4]), so the client sees exactly where the template now exists;
+. *not presented as atomic* - it is a *broadcast*, not a transaction. If some nodes accept and others fail, the gateway MUST return a partial-success status (`207`-style per-endpoint reporting, or `200` with the per-endpoint outcomes and `meta.complete = false`) and MUST NOT roll back the successes. It MUST NOT report overall success while any node failed;
+. *declared* in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]).
+--
++
+_(xref:requirements.adoc#n43[N43].)_
+* Template upload is the *only* fan-out write this specification permits, and it is permitted because a template is *idempotent, identical across nodes, and not patient data* - none of which is true of a `COMPOSITION`. The v1 prohibition on creating clinical objects across multiple nodes is unchanged (xref:requirements.adoc#n23[N23], xref:scope.adoc[§2.3]): a fanned-out `COMPOSITION` create would produce N distinct objects with N distinct uids purporting to be one clinical fact.
+* Where fan-out upload is *not* supported, the deployment MUST have another way to keep templates consistent - out-of-band template distribution, or a shared template repository - and a gateway SHOULD surface a template-missing validation failure from a node as a node-reported error (xref:partial-results.adoc#http-status-mapping[§11.2]) rather than masking it.

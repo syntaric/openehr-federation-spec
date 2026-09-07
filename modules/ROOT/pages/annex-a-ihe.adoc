@@ -4,7 +4,7 @@ This annex collects the IHE profiles named as proposed bindings. The *requiremen
 
 == A.1 PIXm - Patient Identifier Cross-reference for Mobile
 
-* *Role:* cross-reference a patient identifier from one domain to another *without* relying on a shared national identifier - the core of xref:identity-resolution.adoc[§5] (`subject → local ehr_id`). The advisory summarises PIXm as "translating / linking within a community."
+* *Role:* cross-reference a patient identifier from one domain to another *without* relying on a single shared identifier across domains - the core of xref:identity-resolution.adoc[§5] (`subject → local ehr_id`). The advisory summarises PIXm as "translating / linking within a community."
 * *Transactions:* query via *ITI-83* (_Mobile Patient Identifier Cross-reference Query_, the `$ihe-pix` operation) with `sourceIdentifier=<patientId>` and `targetSystem=<the domain's ehr_id system>`; identity feed via *ITI-104* (_Patient Identity Feed FHIR_) to seed the cross-reference (e.g. local id, openEHR id).
 * *Used by:* xref:requirements.adoc#n3[N3] (resolution), Step 1 (xref:reference-flow.adoc[§4]).
 

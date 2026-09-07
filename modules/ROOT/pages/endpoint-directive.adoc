@@ -1,9 +1,6 @@
-= 8. Optional endpoint-targeting directive (`FROM ENDPOINT`)
+= 8. Endpoint targeting (`FROM ENDPOINT` and the endpoint header)
 
-[NOTE]
-====
-An alternative to this is to extract that to a query param instead of changing AQL specs to make this possible; WIP.
-====
+There are *two ways* to pin a query to named nodes, and this specification supports both deliberately (§8.4): *in the AQL* (the `FROM ENDPOINT` directive, §8.1) and *beside the AQL* (the `openEHR-federation-endpoint` *request header*, §8.4). They are semantically equivalent.
 
 == 8.1 Semantics
 
@@ -14,7 +11,7 @@ An alternative to this is to extract that to a query param instead of changing A
 
 == 8.2 Directed clients and the transparency trade-off
 
-A client that uses `FROM ENDPOINT` has *deliberately opted out* of transparency (it now knows about nodes). For such clients, the Tier MAY also expose an *equivalent HTTP query parameter* (e.g. `?endpoint=node_1&…`) so a directed client need not embed the directive in AQL. Undirected clients - the default - never see any of this.
+A client that uses either targeting mechanism has *deliberately opted out* of transparency (it now knows about nodes). Undirected clients - the default - never see this.
 
 == 8.3 Example (directed, with provenance columns)
 
@@ -30,3 +27,63 @@ WHERE e/ehr_status/subject/external_ref/id/value = '12345'
 ----
 
 The gateway resolves `subject = '12345'` to a local `ehr_id` *per listed endpoint*, runs standard AQL keyed on each `ehr_id`, and annotates rows with `endpoint_id` and `system_id` (both drawn from the registry / the resolving node, xref:result-set.adoc[§9]).
+
+[#header-alternative]
+== 8.4 Targeting outside the AQL: the endpoint header (normative)
+
+Putting the node set *inside* the query text has a cost that only shows up in real deployments: *it changes the query*. That matters in two concrete situations, both of which occur in practice.
+
+* *Stored / persisted AQL.* A stored query (`+{base}/v1/definition/query/…+`), a query saved in a report definition, or a query held in an application's source is a *fixed artefact*. If targeting lives in the AQL text, retargeting it means rewriting and re-storing the artefact - and a stored query that is federated for one caller and pinned for another needs *two copies*. With the header, one stored query serves both.
+* *Interactive tools.* An EHR-explorer-style application lets a user compose AQL by hand and then tick which nodes to run it against. Splicing `FROM ENDPOINT [...]` into user-authored AQL means parsing and rewriting the user's text - fragile, and visible to the user as a query they did not write.
+
+Therefore:
+
+* [[endpoint-header]]*A gateway MUST support both mechanisms.* It MUST accept the node set carried *outside* the AQL - as the `openEHR-federation-endpoint` *request header* - *and* it MUST accept the in-AQL `FROM ENDPOINT` directive of §8.1. A *client* MUST support at least one and MAY support either. _(xref:requirements.adoc#n35[N35].)_
+* The out-of-AQL mechanism is *a header, and only a header*. The node set MUST NOT be carried as a query parameter; a gateway MUST NOT define `?endpoint=` or `?organisation=` as a targeting mechanism. Keeping it in the header means targeting never varies the request URI, so it cannot silently change cache keys, stored-query URLs, or the ITS-REST paths of xref:rest-facade.adoc[§7a].
+* Both carry the same values: *stable registry endpoint identifiers* (xref:requirements.adoc#n19[N19]), never URLs (§8.1). The header value is a comma-separated list of those identifiers.
++
+[source,http]
+----
+POST {base}/v1/query/aql
+openEHR-federation-endpoint: node_1, node_2, node_3
+Content-Type: application/json
+
+{ "q": "SELECT c/uid/value AS composition_id FROM EHR e CONTAINS COMPOSITION c
+        WHERE e/ehr_status/subject/external_ref/id/value = '12345'" }
+----
++
+The equivalent organization-level selector is the `openEHR-federation-organisation` header, expanded through the registry exactly as in §8.1.
+* The header form applies to *any* federated request, not only AQL - including the single-node routing of xref:rest-facade.adoc[§7a] and the explicit write target required by xref:follow-up-routing.adoc[§12.4]. The AQL directive, by construction, applies only to AQL. This is a second reason the header cannot simply be dropped in favour of the directive.
+* A gateway MUST declare which mechanisms it accepts in its `+OPTIONS {base}/+` response (xref:rest-facade.adoc#options-root[§7a.2]).
+
+=== 8.4.1 Precedence and conflict
+
+* [[targeting-precedence]]"Both" here means the AQL directive *and* the header - the only two mechanisms that exist (§8.4). If *both* are present in one request, the gateway MUST NOT silently merge or silently prefer one. If the two node sets are *identical*, the request proceeds. If they *differ*, the gateway MUST reject with `400` and an error naming both sets. Guessing which one the client meant is exactly the failure this rule exists to prevent. _(xref:requirements.adoc#n35[N35].)_
+* An endpoint identifier that is unknown to the registry MUST be rejected with `400`, in either mechanism. An endpoint that is known but where the patient is `not-resolved` is *reported*, not errored (§8.1).
+
+== 8.5 Why not standardise on one
+
+Both mechanisms stay in the specification because they fail in different directions:
+
+[cols="1,2,2"]
+|===
+| | `FROM ENDPOINT` (in AQL) | `openEHR-federation-endpoint` header (outside AQL)
+
+| Self-contained
+| *Yes* - the query text is the whole request; it can be logged, replayed and diffed as one artefact.
+| No - the request is the query *plus* its context.
+
+| Requires AQL grammar extension
+| *Yes* - this is a federation-only extension to AQL, and a node would reject it.
+| No - the AQL stays *exactly* conformant, which is also what lets the gateway forward it unchanged.
+
+| Works for stored / user-authored queries
+| Poorly - retargeting rewrites the artefact (§8.4).
+| *Yes* - one stored query, many targetings.
+
+| Works for non-AQL requests (writes, ITS-REST)
+| No.
+| *Yes* (xref:rest-facade.adoc[§7a], xref:follow-up-routing.adoc[§12.4]).
+|===
+
+The gateway therefore carries the cost of supporting both, and the client picks the one that suits it.
