@@ -26,7 +26,7 @@
 
 A system declares conformance to one or both profiles (mirroring the Exchange-Routing IG's two CapabilityStatements, "Intermediary" and "Destination Server"):
 
-* *Federation-Gateway* - implements the transparent façade and the ITS-REST surface, Step-1 resolution, identifier scrubbing, fan-out, combine/annotate, dedup policy, completeness/timeout semantics, follow-up read/write routing, and auth conveyance (xref:requirements.adoc#n1[N1]–N43).
+* *Federation-Gateway* - implements the transparent façade and the ITS-REST surface, Step-1 resolution, query-side identifier hygiene, fan-out, combine/annotate, dedup policy, completeness/timeout semantics, follow-up read/write routing, and auth conveyance (xref:requirements.adoc#n1[N1]–N43).
 * *Federation-Node* - implements a standard openEHR Query API and ITS-REST scoped by `ehr_id`, passes through node-level errors, honours per-node authorization/consent, *never* requires `subject`, and satisfies the federation's admission conditions (xref:membership.adoc#identifier-conditions[§12b.2]).
 
 == 16.3 Test tracks
@@ -82,7 +82,7 @@ A system declares conformance to one or both profiles (mirroring the Exchange-Ro
 
 | 10
 | *Identifier leakage (adversarial)*
-| The same directly identifying identifier is supplied five ways - `external_ref` predicate, `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate, `SELECT` projection, query parameter/header, and a write payload's `composer` - and node-side capture is inspected for *any* occurrence of the value. Zero occurrences is a pass; a `400` rejection is a pass; a forwarded value is a *fail*, including in a logged or echoed query. Also asserts the node is invocable on `ehr_id` alone.
+| The same directly identifying identifier is supplied four ways in the *query* surface - `external_ref` predicate, `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate, `SELECT` projection, and query string/header - and node-side capture is inspected for *any* occurrence of the value in the dispatched AQL, path, query string or headers. Zero occurrences is a pass; a `400` rejection is a pass; a forwarded value is a *fail*, including in a logged or echoed query. A *converse* check also applies: a `COMPOSITION` committed with a `DV_IDENTIFIER` in its content MUST arrive at the node *byte-identical* - a gateway that strips or rewrites a write body *fails* this track. Also asserts the node is invocable on `ehr_id` alone.
 | xref:requirements.adoc#n33[N33], xref:requirements.adoc#n34[N34], xref:requirements.adoc#n5[N5]
 
 | 11
@@ -91,7 +91,7 @@ A system declares conformance to one or both profiles (mirroring the Exchange-Ro
 | xref:requirements.adoc#n41[N41], xref:requirements.adoc#n42[N42], xref:requirements.adoc#n42a[N42a]
 |===
 
-Tracks 10 and 11 are *adversarial*: they are designed to fail a gateway that is merely plausible. Track 10 in particular should be run with node-side wire capture, not with the gateway's own logs - a gateway that scrubs its logs but not its dispatches passes the wrong test.
+Tracks 10 and 11 are *adversarial*: they are designed to fail a gateway that is merely plausible. Track 10 in particular should be run with node-side wire capture, not with the gateway's own logs - a gateway that sanitises its logs but not its dispatches passes the wrong test. Note the track cuts both ways: it fails a gateway that leaks an identifier into a dispatched query, *and* a gateway that takes it upon itself to rewrite a commit body.
 
 == 16.4 Process
 

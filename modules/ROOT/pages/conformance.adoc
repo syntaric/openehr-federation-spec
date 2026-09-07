@@ -132,7 +132,7 @@ A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirem
 | 9
 
 | [[cp-26]]*CP-26*
-| *No identifier leaks to a node.* With a directly identifying identifier supplied via `external_ref`, via `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, in a projection, in a parameter and in a write payload, node-side capture shows the `ehr_id` and *no* identifier value in any position; unscrubbable requests are rejected `400`, not forwarded.
+| *No identifier leaks into the composed query.* With a directly identifying identifier supplied via `external_ref`, via `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, in a projection and in the query string/headers, node-side capture shows the `ehr_id` and *no* identifier value in the dispatched AQL, path, query string or headers; a query that cannot be brought into that state is rejected `400`, not forwarded. Conversely, a write body is delivered unmodified.
 | xref:requirements.adoc#n33[N33]
 | 10
 

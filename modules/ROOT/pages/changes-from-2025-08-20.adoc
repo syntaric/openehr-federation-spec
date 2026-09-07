@@ -49,7 +49,7 @@ This note accompanies *_Proposal for Federation Tier with AQL - revised_* and re
 | Review meeting: transparency has to cover reads and writes, and the prefix is vendor-specific.
 
 | C9
-| *Identifier hygiene is specified beyond `subject`.* A node receives the `ehr_id` and nothing else identifying: `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, `PARTY_RELATED`, `ENTRY`-level `subject`, projections, parameters, headers and write payloads are all in scope, and an unscrubbable request is rejected rather than forwarded. The node's obligation is restated as an *interface* one (be invocable on `ehr_id`; have some way to exchange a patient identifier for it) with no mandate on what a node stores.
+| *Identifier hygiene is specified beyond `subject`.* In the query the gateway composes, a node is located by the `ehr_id` and nothing else identifying: predicates and projections over `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, `PARTY_RELATED` and `ENTRY`-level `subject`, plus the path, query string and headers, are all in scope, and a query that cannot be brought into that state is rejected rather than forwarded. Write payloads are *explicitly out of scope* - a commit body is archetyped clinical content and passes through unmodified. The node's obligation is restated as an *interface* one (be invocable on `ehr_id`; have some way to exchange a patient identifier for it) with no mandate on what a node stores.
 | xref:identity-resolution.adoc#identifier-hygiene[§5.4], xref:identity-resolution.adoc#node-obligation[§5.5] (N33, N34)
 | Review meeting: the `subject` rewrite alone still leaks; and the spec should not legislate node-internal storage.
 
@@ -109,7 +109,7 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 | xref:requirements.adoc#n30[N30] | new | - | `+OPTIONS {base}/+` describes the surface and lists the endpoints behind the gateway.
 | xref:requirements.adoc#n31[N31] | new | - | Acting-endpoint response headers on routed requests; `Location`/`ETag` untouched.
 | xref:requirements.adoc#n32[N32] | new | - | DEMOGRAPHIC not federated; unsupported areas declared; identifier namespaces distinct.
-| xref:requirements.adoc#n33[N33] | new | - | Only the `ehr_id` is dispatched; every other identifier carrier scrubbed or rejected.
+| xref:requirements.adoc#n33[N33] | new | - | In the composed query, a node is located by `ehr_id` alone; other identifier carriers stripped or the query rejected. Write bodies pass through untouched.
 | xref:requirements.adoc#n34[N34] | new | - | Node invocable on `ehr_id`; environment supplies the cross-reference; no storage mandate.
 | xref:requirements.adoc#n35[N35] | new | - | Targeting supported both in AQL and via the `openEHR-federation-endpoint` header (not a query parameter); conflicts rejected.
 | xref:requirements.adoc#n36[N36] | new | - | Post-dedup writes route to the originator; never to a holder of a copy.

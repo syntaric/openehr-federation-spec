@@ -32,10 +32,19 @@ Nothing in this model requires `<patientId>` to be a directly identifying identi
 
 [#identifier-hygiene]
 == 5.4 Identifier hygiene at fan-out: what a node MUST NOT receive
+
+[IMPORTANT]
+.Scope: the query the gateway composes, not the content a client sends
+====
+This section constrains *what the gateway itself puts on the wire when it composes a query*: the AQL it rewrites and dispatches, and the request line and headers it builds. It does *not* ask a gateway to inspect, validate or rewrite a *write payload*.
+
+A `COMPOSITION` being committed is *archetyped clinical content*. A `DV_IDENTIFIER` inside it is legitimate modelled data - the archetype may well call for one - and the gateway has no basis to decide which values are identifying and no right to alter clinical content in transit. Rewriting a commit body would also break its `ETag`/uid semantics (xref:requirements.adoc#n22[N22]). A write body is therefore passed through *unmodified*; what a client chooses to commit into a node's record is governed by that node's own validation, authorization and consent (xref:security.adoc[§13], xref:identity-resolution.adoc#node-obligation[§5.5]), not by the federation.
+====
+
 === 5.4.1 The rule
 
-* [[no-identifier-fanout]]*A node MUST receive only the `ehr_id`.* When the gateway dispatches to a node - whether an AQL fan-out (xref:aql-facade.adoc[§7]) or a routed ITS-REST request (xref:rest-facade.adoc[§7a]) - the outbound request MUST NOT contain any directly identifying identifier of the patient (§5.1), in *any* position. The identifier is consumed by resolution (§5.2) and MUST NOT survive into dispatch. _(xref:requirements.adoc#n33[N33].)_
-* This is a *scrubbing* obligation on the gateway, not merely a rewriting one: the gateway MUST inspect the outbound request for the identifier values it resolved on and MUST reject (`400`) rather than dispatch anything it cannot scrub unambiguously.
+* [[no-identifier-fanout]]*A node MUST be located by `ehr_id` alone.* In the parts of the outbound request the gateway *composes* - the dispatched AQL, the request path, the query string and the headers - it MUST NOT carry any directly identifying identifier of the patient (§5.1), in *any* position. The identifier is consumed by resolution (§5.2) and MUST NOT survive into dispatch. _(xref:requirements.adoc#n33[N33].)_
+* The gateway MUST NOT forward a *query* it cannot bring into that state: if a directly identifying value would remain in the dispatched AQL, it MUST reject with `400` rather than dispatch. Client-supplied *bodies* are outside this rule and pass through unmodified (see the scope note above).
 
 === 5.4.2 Where identifiers hide
 
@@ -46,10 +55,10 @@ Beyond `EHR_STATUS.subject.external_ref.id.value`, an identifier can be carried 
 | Carrier | Why it is a leak path
 
 | `PARTY_IDENTIFIED.identifiers` - a list of `DV_IDENTIFIER` (`id`, `type`, `issuer`, `assigner`)
-| The RM's *general-purpose* identifier slot. It appears wherever a party is named - `COMPOSITION.composer`, `EVENT_CONTEXT.health_care_facility`, `PARTICIPATION.performer`, `INSTRUCTION_DETAILS`, `ATTESTATION.committer` - and it is a *value* store, not a reference. An AQL `WHERE` term or a write payload can carry a directly identifying identifier here just as easily as in `subject`, and unlike `external_ref` there is exactly one obvious place to look.
+| The RM's *general-purpose* identifier slot, and a *value* store rather than a reference. A client can predicate on it - `COMPOSITION.composer`, `EVENT_CONTEXT.health_care_facility`, `PARTICIPATION.performer`, `ATTESTATION.committer` - just as easily as on `subject`, so an AQL `WHERE` term against one of these paths is a second way to ask a node to match on a directly identifying value.
 
 | `PARTY_RELATED` (a `PARTY_IDENTIFIED` subtype used for subjects of care other than the patient)
-| Same `identifiers` list, applied to relatives - so it can leak a *third party's* identifier.
+| Same `identifiers` list, applied to relatives - so a predicate on it can leak a *third party's* identifier.
 
 | AQL `SELECT` paths, `ORDER BY` paths and query parameters
 | An identifier in a projection or a parameter binding is still an identifier on the wire.
@@ -60,7 +69,7 @@ Beyond `EHR_STATUS.subject.external_ref.id.value`, an identifier can be carried 
 
 * [[strip-before-fanout]]The gateway MUST *remove or replace* such identifiers before dispatch. Concretely: a `WHERE` predicate on a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` path that the gateway used as *resolution input* MUST be consumed by resolution and stripped from the node AQL exactly as the `external_ref` predicate is (xref:aql-facade.adoc[§7.1]); a predicate on such a path that the gateway did *not* resolve on, and which carries a directly identifying value, MUST cause the query to be rejected (`400`) rather than forwarded. _(xref:requirements.adoc#n33[N33].)_
 * A gateway MAY accept the identifier in a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate as *alternative resolution input* to `external_ref` - the `issuer`/`type` of the `DV_IDENTIFIER` supplies the issuing namespace that §5.2 requires. Whether or not it does, the outbound rule of §5.4.1 is unchanged.
-* The gateway SHOULD log a scrub or a rejection as a security-relevant event; it MUST NOT log the identifier value itself.
+* The gateway SHOULD log a strip or a rejection as a security-relevant event; it MUST NOT log the identifier value itself.
 
 [#node-obligation]
 == 5.5 What the federation asks of a node (and what it does not)
