@@ -55,7 +55,9 @@ xref:reference-flow.adoc[§4.4] and xref:identity-resolution.adoc[§5.3] state t
 
 The scenario: a clinician's application queries the federation for a patient known to it by *BSN* (the Dutch citizen-service number - a directly identifying identifier, xref:identity-resolution.adoc#directly-identifying-identifier[§5.1]). Two nodes hold data for this patient. Neither stores the BSN.
 
-*Step 0 - the façade query.* The application never sends the BSN. It first exchanges it for a *pseudonymised BSN* at the national Pseudonymization Service (§B.1), then submits ordinary AQL naming only that pseudonym:
+*Who pseudonymises is a deployment choice*, and this walkthrough has to pick one to stay concrete: here *the application* exchanges the BSN for a pseudonym before it calls the gateway, so the gateway never holds the BSN. The other arrangement - the client presents the BSN and the *gateway* exchanges it - is equally conformant; see the note at the end. Everything from Step 1a onwards is identical either way.
+
+*Step 0 - the façade query.* Having exchanged the BSN for a *pseudonymised BSN* at the national Pseudonymization Service (§B.1), the application submits ordinary AQL naming only that pseudonym:
 
 [source,sql]
 ----
@@ -97,6 +99,19 @@ FROM EHR e[ehr_id/value='7d8e...a19'] CONTAINS COMPOSITION c
 
 *Step 3 - combine.* The gateway concatenates the rows and emits `meta.endpoints[]`. Had the façade query SELECTed `subject`, the value returned would be the *re-injected input* `pbsn:8f2a...c41` - not a value read from either CDR (xref:requirements.adoc#n5[N5]).
 
-*What this demonstrates.* At no point does a node receive, store or return the BSN, and at no point does it receive the pseudonym either - the pseudonym is a *gateway-side* resolution input, exchanged for an `ehr_id` before dispatch. The only patient-locating value that reaches a node is its own local `ehr_id`. This is the whole of N5's claim: the federation requires no directly identifying identifier in `EHR_STATUS.subject` at any node.
+*What this demonstrates.* At no point does a node receive, store or return the BSN, and at no point does it receive the pseudonym either - the pseudonym is a *resolution input*, consumed before dispatch. The only patient-locating value that reaches a node is its own local `ehr_id`. This is the whole of N5's claim: the federation requires no directly identifying identifier in `EHR_STATUS.subject` at any node.
 
-Two limits worth stating. First, this constrains what the *federation may require of a node*; a node remains free to hold a BSN for its own purposes under its own governance (xref:requirements.adoc#n34[N34]). Second, the pseudonymisation itself is out of scope here - the gateway consumes whatever identifier the client presents, and the properties of the pseudonym are the Pseudonymization Service's concern (§B.1), not this specification's.
+[NOTE]
+.The gateway MAY hold the BSN instead - this is a deployment choice, not a conformance one
+====
+In the variant above the application pseudonymises, so the gateway never sees a BSN. A deployment MAY equally have the *client present the BSN* and the *gateway* exchange it at the Pseudonymization Service during Step 1. That is the ordinary façade case of xref:aql-facade.adoc[§7]: a client identifies the patient the openEHR-idiomatic way, and the gateway consumes that identifier in resolution.
+
+Both are conformant, because the normative constraints are about *what reaches a node*, not about what a client may hand a gateway:
+
+* xref:requirements.adoc#n5[N5] constrains what the *federation may require a node to store* - it does not say a gateway may not receive a directly identifying identifier.
+* xref:requirements.adoc#n33[N33] and xref:identity-resolution.adoc#identifier-hygiene[§5.4] require the gateway to *consume and strip* such an identifier - or reject the query - so that it never appears in the dispatched AQL, path, query string or headers. A gateway that receives a BSN and discharges N33 is exactly as conformant as one that never receives it.
+
+What differs is the *privacy posture*, which is a deployment decision with real consequences: pseudonymising at the application keeps the directly identifying identifier out of the gateway's trust boundary entirely, at the cost of putting the Pseudonymization Service in front of every client. Pseudonymising at the gateway centralises that integration, at the cost of the gateway becoming a system that processes BSNs - with the logging, retention and audit obligations that follow under its own governance. Neither is mandated here.
+====
+
+Two further limits worth stating. First, this constrains what the *federation may require of a node*; a node remains free to hold a BSN for its own purposes under its own governance (xref:requirements.adoc#n34[N34]). Second, the pseudonymisation itself is out of scope - the properties of the pseudonym are the Pseudonymization Service's concern (§B.1), not this specification's.
