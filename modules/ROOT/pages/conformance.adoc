@@ -27,7 +27,7 @@ A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirem
 | 2
 
 | [[cp-5]]*CP-5*
-| Undirected queries derive their node set (and consent) from localization; ask-all is an explicit fallback.
+| Undirected queries derive their node set from localization; ask-all is an explicit fallback. Localization supplies candidates, not consent.
 | xref:requirements.adoc#n4[N4], xref:requirements.adoc#n10[N10]
 | 3, 4
 
@@ -97,8 +97,8 @@ A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirem
 | 7
 
 | [[cp-19]]*CP-19*
-| Consent gates node inclusion at Step 1 and is re-checked at the node.
-| xref:requirements.adoc#n27[N27]
+| Every node checks consent before releasing data, regardless of any upstream filtering; Step-1 consent pre-filtering is optional and never the sole gate.
+| xref:requirements.adoc#n27[N27], xref:requirements.adoc#n27a[N27a]
 | 7
 
 | [[cp-20]]*CP-20*

@@ -7,10 +7,26 @@
 
 == 13.2 Per-node authorization and consent
 
-* Each node performs its *own* authorization and *consent/opt-out* checks before releasing data - each participant is responsible for checking consent or opt-out before providing health information of a given patient. Consent gates node inclusion at *Step 1* (xref:requirements.adoc#n27[N27], xref:identity-resolution.adoc[§5]) and is re-checked at the node.
-* Access decisions requiring information *not visible* to the gateway MUST be *delegated to the source CDR*; the gateway MUST NOT be the sole authority for releasing sensitive data (xref:requirements.adoc#n26[N26]).
+*Consent is enforced at the node.* Each node performs its *own* authorization and *consent/opt-out* checks before releasing data - each participant is responsible for checking consent or opt-out before providing health information of a given patient (xref:requirements.adoc#n27[N27]). This check is unconditional: a node MUST perform it *whether or not* the gateway, a localization service or a consent service already formed a view upstream. A node MUST NOT treat its own appearance in a localization result as evidence that consent was given.
 
-Two responsibilities are distinct and both hold: *the localization/consent service MAY supply a consent decision* at Step 1 (in some realisations consent is implied by the localization result), which the gateway uses to exclude non-consented nodes; and *the node is the final authority*, re-checking consent before releasing data whether or not the gateway pre-filtered. Where no consent-aware localization exists (xref:reference-flow.adoc[§4.3]), Step 1 carries no consent signal and the node's own check is the sole gate.
+Access decisions requiring information *not visible* to the gateway MUST be *delegated to the source CDR*; the gateway MUST NOT be the sole authority for releasing sensitive data (xref:requirements.adoc#n26[N26]).
+
+=== 13.2.1 Optional pre-filtering, and why it is not the gate
+
+Some deployments can answer the consent question *before* dispatch, from a consent service that is either standalone or folded into localization. Where such a service exists the gateway MAY use its decision to drop nodes at Step 1 and MUST report them as `consent-denied` (xref:requirements.adoc#n27a[N27a], xref:partial-results.adoc[§11.1]). This is an *efficiency and data-minimisation* measure - it avoids dispatching a query that would be refused anyway, and avoids disclosing to a node that the patient was asked about - not a substitute for the node's check.
+
+It is not the gate, for three reasons:
+
+. *Not every federation has one.* A pure record-locator (IHE XCPD ITI-55) reports which communities hold data; it says nothing about release. A deployment with no consent service is fully conformant - Step 1 simply carries no consent signal.
+. *The upstream view can be stale or incomplete.* Consent can be withdrawn between Step 1 and dispatch, and a node routinely holds local consent state, care-relationship context and data-sensitivity classifications that no central service sees.
+. *Only the node knows what it is about to release.* Consent is frequently scoped - to a data category, a purpose of use, a requesting organization - and that scope can only be applied against the actual data in hand (xref:requirements.adoc#n26[N26]).
+
+[IMPORTANT]
+====
+A federation MUST NOT be designed so that consent is enforced *only* by a localization or consent service upstream of the nodes. Localization answers _where data might be_; consent answers _whether it may be released_. A deployment that collapses the two has no enforcement point left when the localizer is wrong, stale, bypassed, or - in a directed query (xref:endpoint-directive.adoc[§8]) - not consulted at all.
+====
+
+A *directed* query makes the last point concrete: `FROM ENDPOINT` selects the node set independently of patient resolution (xref:requirements.adoc#n11[N11]), so localization need never run. If consent rode only on localization, a directed query would bypass it entirely. Under xref:requirements.adoc#n27[N27] it does not: the node checks regardless of how it came to be addressed.
 
 == 13.3 Regional realisation
 

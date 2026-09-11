@@ -21,7 +21,7 @@ Every node that was in scope MUST appear in `meta.endpoints[]` with a status (an
 | The cross-reference service returned no local `ehr_id` for the patient at this node (xref:identity-resolution.adoc[§5], xref:requirements.adoc#n6[N6]).
 
 | `consent-denied`
-| Localization/consent denied inclusion (xref:identity-resolution.adoc[§5], xref:requirements.adoc#n27[N27]).
+| Consent did not permit this node's inclusion. Set either by an *optional* Step-1 consent pre-filter (xref:requirements.adoc#n27a[N27a], xref:security.adoc[§13.2.1]) or by the node itself refusing on consent grounds (xref:requirements.adoc#n27[N27]); deployments without a consent service use it only in the latter sense.
 
 | `excluded`
 | Deliberately excluded (e.g. not in a directed `FROM ENDPOINT` set).

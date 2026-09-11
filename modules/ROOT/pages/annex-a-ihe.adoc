@@ -18,7 +18,8 @@ This annex collects the IHE profiles named as proposed bindings. The *requiremen
 
 * *Role:* discover which *communities* hold data about the patient and translate identifiers across them - "cross-community discovery." The proposed *localization* binding (xref:localization.adoc[§14]/xref:requirements.adoc#n4[N4]).
 * *Transaction:* *ITI-55* (_Cross Gateway Patient Discovery_); the response conveys the patient's local identifier(s) and home community.
-* *Used by:* xref:requirements.adoc#n4[N4] (localization), Step 1.1 (xref:reference-flow.adoc[§4.2]), consent conveyance (xref:security.adoc[§13]/xref:requirements.adoc#n27[N27]).
+* *Used by:* xref:requirements.adoc#n4[N4] (localization), Step 1.1 (xref:reference-flow.adoc[§4.2]).
+* *Not a consent binding.* ITI-55 answers a discovery question - which communities hold the patient - and carries no consent decision. Consent is enforced at the node (xref:requirements.adoc#n27[N27]); a deployment wanting Step-1 pre-filtering needs a consent service alongside XCPD, not XCPD itself (xref:security.adoc[§13.2.1]).
 
 == A.4 PMIR - Patient Master Identity Registry
 

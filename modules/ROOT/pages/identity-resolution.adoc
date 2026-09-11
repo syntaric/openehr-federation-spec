@@ -20,11 +20,13 @@ A regional instance of this argument - stated in terms of the Dutch BSN, with th
 == 5.2 Resolution model
 
 * The Federation Tier MUST resolve `<patientId>` (with its issuing namespace) to a set of `{node, local ehr_id}` using an *identifier cross-reference service* (proposed binding: *IHE PIXm* `$ihe-pix`, `sourceIdentifier=<patientId>`, `targetSystem=<the domain's ehr_id system>`, with *XCPD* for cross-community discovery and *PMIR* for identity lifecycle as needed). Resolution MUST occur *outside AQL* (xref:requirements.adoc#n3[N3]).
-* For an *undirected* query, the candidate node set and the consent decision MUST come from a *localization / record-locator service* (proposed binding: IHE *XCPD*; regional alternative in xref:annex-b-dutch-gf.adoc[Annex B]). The locator's internals are out of scope (xref:requirements.adoc#n4[N4], xref:localization.adoc[§14]).
+* For an *undirected* query, the candidate node set MUST come from a *localization / record-locator service* (proposed binding: IHE *XCPD*; regional alternative in xref:annex-b-dutch-gf.adoc[Annex B]). The locator's internals are out of scope (xref:requirements.adoc#n4[N4], xref:localization.adoc[§14]). Localization yields *candidates*, not release decisions: consent is enforced at the node (xref:requirements.adoc#n27[N27], xref:security.adoc[§13.2]).
 * A directly identifying identifier (§5.1) MUST NOT be *required* to be stored in `EHR_STATUS.subject` at any node. If a federated result includes a `subject` column, its value is the *re-injected resolution input*, not data read from a CDR (xref:requirements.adoc#n5[N5], xref:aql-facade.adoc[§7]).
-* Nodes where the patient is `not-resolved`, or where consent is denied, MUST be recorded in metadata and MUST NOT be queried, and MUST NOT fail the overall query (xref:requirements.adoc#n6[N6]).
+* Nodes where the patient is `not-resolved` - and nodes dropped by an *optional* Step-1 consent pre-filter, where a deployment has one (xref:requirements.adoc#n27a[N27a]) - MUST be recorded in metadata and MUST NOT be queried, and MUST NOT fail the overall query (xref:requirements.adoc#n6[N6]).
 
-`{node, local ehr_id}` denotes a *set of per-node triples*: for each candidate node, the patient's local `ehr_id` (or _not-found_). Only nodes with a resolved `ehr_id` are dispatched to in Step 2. Consent is discussed further in xref:security.adoc[§13.2] and xref:localization.adoc[§14] (in many realisations the localization service returns the consent decision together with the node list).
+`{node, local ehr_id}` denotes a *set of per-node pairs*: for each candidate node, the patient's local `ehr_id` (or _not-found_). Only nodes with a resolved `ehr_id` are dispatched to in Step 2.
+
+Resolution answers *where* and *under which local id*; it does not answer *whether data may be released*. That is consent, it is enforced at the node (xref:requirements.adoc#n27[N27], xref:security.adoc[§13.2]), and a node reached through this resolution path is still obliged to check it. Some deployments additionally return a consent decision alongside the node list and pre-filter on it - optional, and covered in xref:security.adoc[§13.2.1].
 
 == 5.3 The demographic input may itself be pseudonymised
 

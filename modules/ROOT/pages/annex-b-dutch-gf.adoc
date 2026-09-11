@@ -2,6 +2,14 @@
 
 This annex documents a *regional alternative* to the IHE bindings: the *Netherlands - Generic Functions for data exchange* Implementation Guide (Nuts `nl-generic-functions-ig`, *v0.3.0*, published by Stichting Nuts, package `fhir.nl.gf#0.3.0` on FHIR R4). A Dutch deployment MAY satisfy the normative requirements using these Generic Functions in place of (or alongside) the IHE profiles. The IG's narrative pages are titled _Localization, Care Services Directory, Routing, Consent, Identification, Authentication, Authorization_; in prose the functions are referred to as GF-Localization, GFA (Addressing), GF-Identification, GF-Authentication, GF-Authorization and GF-Consent.
 
+[NOTE]
+.Localization and consent are coupled in this annex - deliberately, and only here
+====
+The Dutch Generic Functions bundle localization with the consent check: the NVI lookup is followed by a `HEAD` against the data holder whose status already reflects consent (§B.1), and Mitz answers a closed allow/deny question rather than exposing consents for inspection (§B.6). This annex describes that coupling because it is what the Dutch stack actually does.
+
+It is *not* the model of the normative body, which keeps the two apart: localization yields candidates (xref:requirements.adoc#n4[N4]), consent is enforced at the node (xref:requirements.adoc#n27[N27]), and Step-1 pre-filtering - what Mitz provides here - is optional (xref:requirements.adoc#n27a[N27a], xref:localization.adoc#consent-aware-localization[§14.4]). A Dutch deployment therefore has *both*: the Mitz pre-filter, *and* each node's own check before it releases data. Mitz does not discharge the latter.
+====
+
 == B.1 GF-Localization (satisfies N4 / §14)
 
 * One national *Medical Record Localization Service*, the *NVI* (_Nationale Verwijs Index_), indexed per data holder by a *Local Metadata Register (LMR)* (the IG allows reusing a data holder's FHIR interface as its LMR).
@@ -33,8 +41,8 @@ This annex documents a *regional alternative* to the IHE bindings: the *Netherla
 * The policy *Context* includes `mitz_consent` - a boolean indicating whether the Mitz consent check allows sharing. The decision output is the Rego `allow` boolean (with optional non-normative `reasons[]`).
 * Authoritative inputs: PKIoverheid certs, CIBG-Dezi, CIBG-LRZa, Vektis (org type), VZVZ-Mitz (consent), Nictiz qualifications; Subject/Resource/Action/Context data model with a Policy Information Point (PIP).
 
-== B.6 GF-Consent (satisfies N27 / §13.2, §14)
+== B.6 GF-Consent (realises N27a / §13.2.1; N27 still applies at the node)
 
 * *Mitz* is leading for the national catalogue of consent preferences (the _Mitz afsprakenstelsel_), commonly called the *OTV* (_Online ToestemmingsVoorziening_).
-* Mitz answers a *closed authorization question* (_Gesloten Autorisatievraag_) with an *allow/deny* policy decision; Mitz consents cannot be queried directly. This is the regional realisation of the Step-1 consent gate (xref:requirements.adoc#n27[N27]).
+* Mitz answers a *closed authorization question* (_Gesloten Autorisatievraag_) with an *allow/deny* policy decision; Mitz consents cannot be queried directly. This is the regional realisation of the *optional* Step-1 consent pre-filter (xref:requirements.adoc#n27a[N27a]).
 * Also defined: *DHTV* (_dossierhouderstoestemmingsvoorziening_, a local explicit-consent store, reusing IHE PCF Consent Recorder/Registry actors) and *implicit* consent (_Veronderstelde Toestemming_, NEN 7517).

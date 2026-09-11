@@ -10,14 +10,14 @@ Requirement language is RFC 2119. Where a requirement names an IHE profile, the 
 == Patient resolution (Step 1)
 
 * [[n3]]*N3.* Before dispatch, the Tier MUST resolve `<patientId> → {node, local ehr_id}` via an identifier cross-reference service (proposed binding: IHE PIXm `$ihe-pix`). Resolution MUST occur *outside AQL*. _(xref:identity-resolution.adoc[§5.2].)_
-* [[n4]]*N4.* For an undirected query, the Tier MUST obtain candidate nodes from a localization / record-locator service (proposed binding: IHE XCPD). The service's internals are out of scope. _(xref:localization.adoc[§14].)_
+* [[n4]]*N4.* For an undirected query, the Tier MUST obtain candidate nodes from a localization / record-locator service (proposed binding: IHE XCPD). The service's internals are out of scope. Localization answers *where the patient's data might be*; it is *not* required to answer whether that data may be released - that is consent (<<n27,N27>>), which a localizer MAY carry but MUST NOT be assumed to. _(xref:localization.adoc[§14].)_
 * [[n5]]*N5.* The Tier MUST NOT require a *directly identifying identifier* of the patient (xref:identity-resolution.adoc#directly-identifying-identifier[§5.1]) to be stored in `EHR_STATUS.subject` at any node. A returned `subject` column MUST be the *re-injected resolution input*. This constrains what the *federation may require of a node*; it is not a prohibition on what a node stores (<<n34,N34>>). _(xref:identity-resolution.adoc[§5], xref:aql-facade.adoc[§7].)_
 * [[n6]]*N6.* `not-resolved` outcomes *per node* MUST be recorded in metadata and MUST NOT fail the whole query. _(xref:partial-results.adoc[§11], §27.)_
 
 == Dispatch & rewrite (Step 2)
 
 * [[n7]]*N7.* The Tier MUST dispatch *standard, non-federated* AQL to each eligible node, scoped to that node's *resolved* `ehr_id` - keyed on `ehr_id`, *not* on `subject`. _(xref:aql-facade.adoc[§7].)_
-* [[n8]]*N8.* The Tier MUST dispatch *only* to nodes where the patient is resolved (via the cross-reference service)
+* [[n8]]*N8.* The Tier MUST dispatch *only* to nodes where the patient is resolved (via the cross-reference service), minus any nodes removed by an optional Step-1 consent pre-filter (<<n27a,N27a>>). Dispatching to a node is *not* an assertion that consent permits release - the node decides that (<<n27,N27>>). _(xref:identity-resolution.adoc[§5.2].)_
 * [[n9]]*N9.* `WHERE` clauses execute *within* each node. `LIMIT`, `OFFSET` and `ORDER BY` also execute within each node, but per-node execution alone is *not* a correct federated answer: the Tier MUST additionally apply the merge rules of <<n39,N39>>. _(Cross-node pagination is not guaranteed; xref:partial-results.adoc#aggregation-and-ordering[§11.6], xref:future.adoc[§18].)_
 * [[n10]]*N10.* The Tier MUST accept an *undirected* query that identifies only the patient; the node set is derived from localization (<<n4,N4>>).
 * [[n11]]*N11.* The Tier MUST accept a *directed* query that names *Endpoints*, and SHOULD accept one that names *Organizations*. The directive selects the *node set* and is *independent of patient resolution*; per-node scope is still the resolved `ehr_id`. _(xref:endpoint-directive.adoc[§8].)_
@@ -48,7 +48,8 @@ Requirement language is RFC 2119. Where a requirement names an IHE profile, the 
 
 * [[n25]]*N25.* The client MUST authenticate to the Federation Tier; the Tier authenticates *onward* and MUST *propagate the client identity* to nodes (a signed JWT / SMART Backend Services token exchange; a regional federated-identity stack MAY be used instead - xref:annex-b-dutch-gf.adoc[Annex B]). _(Intermediaries White Paper Conformance Point #2; xref:security.adoc[§13].)_
 * [[n26]]*N26.* Access decisions that need information *not visible* to the gateway MUST be *delegated to the source CDR*; the gateway MUST NOT be the sole authority for releasing sensitive data. _(xref:security.adoc[§13].)_
-* [[n27]]*N27.* *Consent enforcement* - conveyed via the localization/consent service (proposed binding: IHE XCPD; a regional consent service MAY be used, xref:annex-b-dutch-gf.adoc[Annex B]) - MUST gate node inclusion at *Step 1* (this feeds <<n6,N6>>), and the node MUST re-check consent before releasing data. _(xref:security.adoc[§13], xref:localization.adoc[§14].)_
+* [[n27]]*N27.* *Consent enforcement is the node's obligation.* Each node MUST check consent (or opt-out) before releasing data, and MUST do so *whether or not* anything upstream pre-filtered on consent. A gateway MUST NOT assume that a node appearing in a localization result is consent-cleared. _(xref:security.adoc[§13.2].)_
+* [[n27a]]*N27a.* *Consent pre-filtering at Step 1 is OPTIONAL.* Where a deployment provides a *consent service* - whether standalone or bundled into localization (<<n4,N4>>) - the Tier MAY use its decision to exclude nodes before dispatch, and MUST then report each excluded node as `consent-denied` (<<n16,N16>>, this feeds <<n6,N6>>). A deployment with no such service is *fully conformant*: Step 1 simply carries no consent signal and <<n27,N27>> is the sole gate. Pre-filtering never discharges the node's obligation. _(xref:security.adoc[§13.2], xref:localization.adoc[§14.4].)_
 
 == REST façade & addressing
 

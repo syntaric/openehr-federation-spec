@@ -49,7 +49,7 @@ The conditions above are the *identifier-integrity* subset - the ones this speci
 
 * *Trust and authentication* - how the node authenticates the gateway and vice versa (xref:security.adoc[§13], xref:requirements.adoc#n25[N25]).
 * *Registry and addressing entries* - the endpoints, connection types and base URLs the node must supply (xref:addressing.adoc[§15], xref:requirements.adoc#n19[N19]).
-* *Consent handling* - the node's obligation to re-check consent before releasing data (xref:requirements.adoc#n27[N27], xref:security.adoc[§13.2]).
+* *Consent handling* - the node's obligation to check consent before releasing data, independently of any upstream filtering (xref:requirements.adoc#n27[N27], xref:security.adoc[§13.2]).
 * *Conformance evidence* - which profile the node claims and against what (xref:testing.adoc[§16], xref:conformance.adoc[§17]).
 
 Those are each specified in their own sections but are *not* gathered here into a single admission profile, and *membership revocation* - what happens to registry entries, cached bindings, in-flight queries and the audit trail when a node leaves or is suspended - is not addressed at all in v1. Both are recorded as future work (xref:future.adoc[§18]).

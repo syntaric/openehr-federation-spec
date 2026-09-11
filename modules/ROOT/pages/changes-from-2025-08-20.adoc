@@ -80,11 +80,11 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 | xref:requirements.adoc#n1[N1] | new | - | Transparent façade: no indication it is federated.
 | xref:requirements.adoc#n2[N2] | new | - | Accept `subject` as façade input; never execute it at a node.
 | xref:requirements.adoc#n3[N3] | new | - | Resolve `subject → {node, ehr_id, consent}` outside AQL.
-| xref:requirements.adoc#n4[N4] | new | - | Undirected queries get nodes + consent from a localization service.
+| xref:requirements.adoc#n4[N4] | new | - | Undirected queries get their candidate nodes from a localization service (candidates only - not consent).
 | xref:requirements.adoc#n5[N5] | new | - | No directly identifying identifier required in `EHR_STATUS.subject`; a returned subject column is re-injected input.
 | xref:requirements.adoc#n6[N6] | new | - | `not-resolved` / `consent-denied` per node recorded, not fatal.
 | xref:requirements.adoc#n7[N7] | changed | #1 | Dispatch *standard* AQL keyed on `ehr_id`, not `subject` (the core shift).
-| xref:requirements.adoc#n8[N8] | changed (SHOULD→MUST) | #3 | Dispatch only to nodes where the patient is resolved *and* consent permits.
+| xref:requirements.adoc#n8[N8] | changed (SHOULD→MUST) | #3 | Dispatch only to nodes where the patient is resolved (plus any optional consent pre-filter, xref:requirements.adoc#n27a[N27a]).
 | xref:requirements.adoc#n9[N9] | kept | #13 | `WHERE`/`LIMIT`/`OFFSET` execute within each node.
 | xref:requirements.adoc#n10[N10] | changed | #6 | Accept an undirected query identifying only the patient.
 | xref:requirements.adoc#n11[N11] | changed (merge) | #7 + #8 | Accept a directed query naming Endpoints (SHOULD: Organizations); directive is independent of patient resolution.
@@ -103,7 +103,8 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 | xref:requirements.adoc#n24[N24] | new | - | Convey authenticated client identity on every routed follow-up.
 | xref:requirements.adoc#n25[N25] | new | - | Client authenticates to the Tier; the Tier propagates identity onward (signed JWT / Backend Services).
 | xref:requirements.adoc#n26[N26] | new | - | Delegate access decisions needing gateway-invisible information to the source CDR.
-| xref:requirements.adoc#n27[N27] | new | - | Consent gates node inclusion at Phase 1.
+| xref:requirements.adoc#n27[N27] | new | - | Consent enforcement is the node's obligation, performed regardless of upstream filtering.
+| xref:requirements.adoc#n27a[N27a] | new | - | Step-1 consent pre-filtering is OPTIONAL, where a deployment has a consent service.
 | xref:requirements.adoc#n28[N28] | new | - | ITS-REST at a deployment-chosen base URL; no mandated prefix (`/rest/openehr` removed).
 | xref:requirements.adoc#n29[N29] | new | - | Canonical path form and AQL predicate form both supported.
 | xref:requirements.adoc#n30[N30] | new | - | `+OPTIONS {base}/+` describes the surface and lists the endpoints behind the gateway.

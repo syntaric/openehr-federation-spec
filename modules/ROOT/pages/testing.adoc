@@ -16,7 +16,10 @@
 | Resolves `sourceIdentifier → targetSystem` (local `ehr_id`) via PIXm `$ihe-pix` (ITI-83); seeded by ITI-104.
 
 | *Localization service* (optional)
-| Returns candidate nodes + consent (XCPD ITI-55; or a regional service).
+| Returns candidate nodes (XCPD ITI-55; or a regional service). MAY additionally return a consent decision if the deployment under test is consent-aware (xref:localization.adoc#consent-aware-localization[§14.4]).
+
+| *Consent service* (optional)
+| Supplies the Step-1 pre-filter decision where a deployment has one (xref:requirements.adoc#n27a[N27a]). Absent in a minimal conformant deployment; consent is then enforced at the nodes alone.
 
 | *Client (Consumer)*
 | Drives queries and follow-ups; verifies it needs no federation-specific syntax.
@@ -67,8 +70,8 @@ A system declares conformance to one or both profiles (mirroring the Exchange-Ro
 
 | 7
 | *Auth conveyance + consent-deny*
-| The gateway authenticates onward and conveys client identity (signed JWT / Backend Services); a node denies on consent and the row set reflects it; sensitive-data decisions are delegated to the node.
-| xref:requirements.adoc#n24[N24], xref:requirements.adoc#n25[N25], xref:requirements.adoc#n26[N26], xref:requirements.adoc#n27[N27]
+| The gateway authenticates onward and conveys client identity (signed JWT / Backend Services); sensitive-data decisions are delegated to the node. Consent is exercised in three configurations: *(a)* no consent service - a node denies on consent and the row set and `meta.endpoints[]` reflect it; *(b)* consent service present - a node dropped at Step 1 is reported `consent-denied` and is never dispatched to; *(c)* the *disagreement* case - localization returns a node, the node denies anyway, and the query still succeeds with that node reported. A *directed* query (`FROM ENDPOINT`, no localization) MUST still be consent-checked at the node.
+| xref:requirements.adoc#n24[N24], xref:requirements.adoc#n25[N25], xref:requirements.adoc#n26[N26], xref:requirements.adoc#n27[N27], xref:requirements.adoc#n27a[N27a]
 
 | 8
 | *PMIR merge/split (ITI-93/94)*
