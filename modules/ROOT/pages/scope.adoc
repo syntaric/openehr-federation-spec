@@ -23,6 +23,7 @@ The following are *referenced, not specified* here. The Federation Tier *consume
 * *Localization / record-locator internals* - how a locator decides which communities hold data. The spec requires the Tier to consume a node list; it does not build the locator.
 * *Transport security and the trust framework* - TLS, mTLS, certificate/PKI and network trust are assumed and bound via the security profiles (xref:security.adoc[§13], xref:annex-b-dutch-gf.adoc[Annex B]); this document specifies the *identity conveyance* on top of them, not the transport itself.
 * *The demographic service / MPI data model* - owned by the identity/demographic profiles (xref:annex-a-ihe.adoc[Annex A]), not here.
+* *Audit* - deliberately not specified, not an oversight. This specification does two audit-relevant things: it requires the gateway to convey the authenticated client identity on every routed follow-up *so that a node can write its own audit records* (xref:requirements.adoc#n24[N24], xref:security.adoc[§13.1]), and it fixes *which identifier a governance event is about* (xref:identifiers.adoc[§12a]). It does *not* specify an audit event model, what must be recorded, retention, or a federation-wide audit trail, and it does not bind ATNA or any other audit profile. Audit remains each participant's own obligation under its own governance; a federation that wants a common audit model must define one alongside this specification (xref:future.adoc[§18]).
 
 == 2.3 Non-goals (in v1)
 

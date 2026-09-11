@@ -8,7 +8,7 @@ a regional alternative), and each node then receives **standard, non-federated A
 scoped to its resolved `ehr_id`. The gateway is a transparent façade: a client never
 needs federation-specific syntax to run a basic patient query.
 
-> **Status: working draft, v0.3.** This is very much a work in progress, circulated by
+> **Status: working draft, v0.3.1.** This is very much a work in progress, circulated by
 > the openEHR Federation Working Group for comment. Feedback of every kind is welcome —
 > from typo fixes to fundamental disagreement with the model. See
 > [CONTRIBUTING.md](CONTRIBUTING.md).

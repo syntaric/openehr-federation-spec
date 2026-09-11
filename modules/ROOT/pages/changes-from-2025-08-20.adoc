@@ -133,3 +133,98 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 * *Partial results:* the endpoint status set is extended and mapped to HTTP status codes aligned with the Exchange-Routing IG; "patient found nowhere" is a `200` with empty rows, not a `404` (xref:partial-results.adoc[§11]).
 * *Diagrams:* the two reference-flow sequence diagrams are authored in PlantUML (`diagrams/*.puml`) and embedded as rendered images.
 * *Spec vs regional realisation:* all Dutch-specific detail (Mitz/OTV, NVI, LRZa, `did:web`/VC/DPoP, Rego/`mitz_consent`, pseudonymised-BSN localization) and the ACP/Vitaly worked example are confined to the informative xref:annex-b-dutch-gf.adoc[Annex B]; the normative body names only abstract roles and their proposed IHE binding (xref:scope.adoc[§2.4]).
+
+== Changes in 0.3.1 (response to implementation review)
+
+Version 0.3 was published as a draft for review, and the *UNIO project* then built a conformant Federation-Gateway against it and reported what the draft left underdetermined. Their review enumerated the specification's obligations mechanically before applying any judgement - 132 of them across the requirement, conformance-point, track and named-anchor schemes - and reported 12 findings against that fixed denominator, each with a `file:line` locator. Building something is the only way to find this class of defect: where a specification is silent an implementer cannot also be silent, and the shape of what they had to invent is the shape of the gap.
+
+0.3.1 is the disposition of that review. It is a *patch* release: no requirement is withdrawn, and the one wire-visible addition is a new endpoint status. The table below records every finding, including those that resulted in *no change* - a table listing only the accepted findings would be the less useful document.
+
+[cols="1,2,4"]
+|===
+| Finding | Where | Disposition
+
+| F-001
+| xref:partial-results.adoc#http-status-mapping[§11.2] / xref:partial-results.adoc#best-effort[§11.4]
+| *Changed (blocker).* §11.2 mapped a node timeout to `504` while §11.4 and N37 mandated `200` with `meta.complete: false`, with neither subordinated to the other. *§11.4 governs.* The `504` row is scoped to opt-in all-or-nothing completeness, a row for the default best-effort case (`200`) is added above it, and a lead-in states that the table maps conditions that *fail the request*.
+
+| F-002
+| xref:conformance.adoc[§17]
+| *Changed (major).* N8, N12 and N18 had no conformance point and no track; they are now scored by the new *CP-36*, *CP-37* and *CP-35*. N9 is *not* given its own point - CP-32 already asserts N39's merge rules, which is exactly N9's content - and is added to CP-32's Requirements cell instead. New points are *appended*, never renumbered, so existing CP citations keep resolving.
+
+| F-003
+| xref:conformance.adoc#cp-35[CP-35], xref:testing.adoc#track-1[Track 1]
+| *Changed.* N17 was asserted by Track 1 but scored by no conformance point. *CP-35* now covers the envelope shape, the single-CDR-compatibility rule and N18's alias collisions, and Track 1 points at it.
+
+| F-004
+| N6, Annex A §A.7, §4.4, §5.3
+| *Changed.* Four prose references did not resolve. N6 cited a section 27 that does not exist and meant N27; Annex A's body reference is qualified as the *advisory's* §4.5 (its heading was already correct); and the twice-promised *Annex B §B.7* is now written. Prevention is the durable part: `tools/check-refs.sh` runs in CI.
+
+| F-005
+| xref:localization.adoc[§14]
+| *Changed.* §14 ran 14.1 → 14.2 → 14.4 → 14.5. Renumbered to close the gap. Contrary to the review's note, this was *not* self-checking: the inbound references carry `§14.4` in xref *link text*, which Antora never validates - the same pattern as F-004.
+
+| F-006
+| xref:terminology.adoc#requirement-language[§ Requirement language]
+| *Changed.* The requirement-language section defined seven RFC 2119 keywords and used others. Rather than adding the three the review named, the *full* keyword set is now defined - `SHALL NOT` was also missing - which removes the defect class instead of three instances of it.
+
+| F-007
+| xref:partial-results.adoc#endpoint-status[§11.1], N16, N37
+| *Changed (major).* No status described a registry member that localization did not name - the commonest undirected case. A seventh status *`not-localized`* is added, `excluded` is tightened to mean a decision *was* made about the node, and §11.1 now states what "in scope" means: neither status clears `meta.complete`, because a query is not incomplete for failing to ask a node it never intended to ask.
+
+| F-008
+| xref:result-set.adoc#columns-provenance[§9.1], N17
+| *Changed (major).* `columns[].path` had no stated provenance, and two production CDRs answer it differently for the same AQL - so a gateway echoing whichever node replied first produced output that depended on scheduling. `columns[]` MUST now be the gateway's rendering of the client's submitted AQL, independent of any node's.
+
+| F-009
+| xref:localization.adoc#localizer-unavailable[§14.1], N4
+| *Changed (major).* Localizer *unavailability* was unspecified, and the two readings are not interoperable. The default is now *fail-closed*, with fail-open-to-ask-all declarable in `OPTIONS` - the same safe-default-plus-declared-opt-in shape as §11.4. Distinguished explicitly from the existing ask-all fallback for deployments with *no* localizer (§4.3), which is unchanged.
+
+| F-010
+| xref:security.adoc#jwks-discovery[§13.1], xref:testing.adoc#track-7[Track 7]
+| *Changed (major), narrower than reported.* §13.1 and N25 *already* required the JWKS be resolvable by the node; what was missing was a *discovery mechanism*. The gateway MUST now publish the location as `federation.auth.jwks_uri` in `OPTIONS`, and Track 7's "the gateway's published JWKS" cites §13.1. No new obligation was created.
+
+| F-011
+| xref:testing.adoc#track-8[Track 8]
+| *Changed.* A track whose own assert cell makes its subject matter optional sat unmarked among adversarial tracks. Track 8 is now marked *provisional*, and the note after the table states what the review did not realise: Track 8 is the only track *no conformance point scores*, which strengthens rather than weakens the case.
+
+| F-012
+| xref:testing.adoc#track-11[Track 11]
+| *Changed.* The duplicate-`ehr_id` fixture is now stated to be *harness-injected*, not a conformant node state, and the harness operator is named as responsible for creating it - resolving the apparent contradiction with §12b.2's admission conditions in place.
+
+| _(held item)_
+| xref:partial-results.adoc#http-status-mapping[§11.2]
+| *No change.* The reviewer held back a preference for `502` over `500` on node internal error, pending F-001 "which touches the same table". Considered with the table open and *held at `500`*: that is what the Exchange-Routing IG's destination-reported column means, and `502` would attribute the node's error to the intermediary. §11.2 now says so, and notes that the per-endpoint `error` field is where the distinction belongs.
+
+| _(part of F-004)_
+| Annex A §A.7 heading
+| *No change.* The review counted Annex A's *heading* "End-to-end (advisory §4.5)" among the broken references. It is correct as written - it cites the MPI advisory, not this document - and `check-refs.sh` rightly excludes it. Only the unqualified body reference was fixed.
+
+| T-A
+| xref:conformance.adoc[§17]
+| *Changed.* The conformance table gains an *Actor* column (`Gateway` / `Node` / `Operator`). CP-18, CP-19, CP-20, CP-27 and CP-33a are not gateway obligations, which the table now states rather than leaving an implementer to infer - converting apparent gaps into a stated fact.
+
+| T-D
+| xref:testing.adoc[§16.2]
+| *Changed (answers open question 1).* Yes, the thin Federation-Node profile is deliberate. §16.2 now says so: a node is constrained at its interface and nowhere else, and a point marked `Node` or `Operator` is scored against that actor. A fuller profile is recorded in §18.
+
+| _(open question 2)_
+| xref:result-set.adoc[§9.1], xref:future.adoc[§18]
+| *Accepted, deferred.* Yes, the WG wants the JSON Schema the reviewer offered. It is not landed in 0.3.1 because it cannot be written correctly until the field names this release fixes have settled. Meanwhile §9.1 states that the §9.3 example and §9.4 table are *jointly normative*, and §18 records the intent.
+
+| _(open question 3)_
+| xref:scope.adoc[§2.2], xref:future.adoc[§18]
+| *Changed.* Yes, audit is deliberately out of scope, and §2.2 now says so explicitly rather than leaving the silence to be interpreted: the specification conveys client identity so a node can audit (N24) and fixes which identifier an event is about (§12a), but defines no event model, retention or federation-wide trail, and binds no ATNA.
+|===
+
+=== Also in 0.3.1
+
+Defects found while dispositioning the review, and the prevention work:
+
+* *Wire-format consistency.* `product`/`version` were separate fields in §9.4 and merged into one string in the `OPTIONS` example; they are separate in both now. Latency had three spellings; `latency_ms` is the per-query measurement and `latency_ms_p50` the `OPTIONS` aggregate, with prose saying which is which. `node_id` is added to the `OPTIONS` example, and the four "MUST be declared in `OPTIONS`" obligations that the example omitted (all-or-nothing, the `OFFSET` strategy, decomposable aggregates, fan-out template upload) now appear in it.
+* *`OPTIONS` `endpoints[].status` has a stated meaning:* membership and health, *not* §11.1's per-query vocabulary. Unstated, it would have been misread as soon as `not-localized` existed.
+* *Missing status rows.* §11.2 gains the `409` row that N36 and N42 both mandate, and the `501` row that N32 mandates.
+* *Anchors.* §11.1 gains `[#endpoint-status]` and the six bare `§11.1` citations point at it; the orphan `[[meta-latency]]` and `[[meta-version]]` anchors are now linked; and the §16.3 tracks gain `[[track-N]]` anchors, with the conformance table's Track column linking to them - a renumbered track previously broke 38 rows silently.
+* *CI gates (the durable part).* A new `validate.yml` runs on every push and pull request: the Antora build (which was previously the *publish* step, so the published site was the validation - which is why four broken references shipped), then `tools/check-refs.sh` for prose §references, `tools/traceability.sh --assert` for the requirement closure, and `tools/check-anchors.sh` for xref fragments that name a page that exists and an anchor that does not. `CONTRIBUTING.md` documents the citation rules these enforce.
+
+The review is the UNIO project's *Federation Tier specification - implementation review* of v0.3. The finding IDs above are theirs, so the two documents can be read against each other row for row.

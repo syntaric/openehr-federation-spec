@@ -5,6 +5,7 @@
 
 * The client MUST authenticate to the Federation Tier (xref:requirements.adoc#n25[N25]). The Tier authenticates *onward* to each node and MUST *propagate the client's identity*, because - per the White Paper - the source server needs it both to enable appropriate audit records on the source server and to allow the source server to make appropriate security decisions about what records are made available.
 * The default mechanism is *OAuth 2.0* (RFC 6749) using the *client-credentials* grant with a *signed JWT client assertion* (RFC 7523 §2.2, `client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer`): a node hosts an OAuth token endpoint that authenticates the gateway via that assertion, with the gateway's signing keys published as a *JWKS* (RFC 7517) resolvable by the node. A regional federated-identity stack MAY be used instead (xref:annex-b-dutch-gf.adoc[Annex B]).
+* [[jwks-discovery]]*The JWKS must be discoverable, not merely published.* The gateway MUST report the JWKS location as `federation.auth.jwks_uri` in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]), so a node can obtain the keys it verifies against without an out-of-band arrangement. This specification does not mandate where the key set is hosted - a deployment is free to serve it from wherever its PKI already lives - only that the gateway says where that is. _(xref:requirements.adoc#n25[N25], xref:requirements.adoc#n30[N30].)_
 
 [NOTE]
 ====
@@ -24,7 +25,7 @@ Access decisions requiring information *not visible* to the gateway MUST be *del
 
 === 13.2.1 Optional pre-filtering, and why it is not the gate
 
-Some deployments can answer the consent question *before* dispatch, from a consent service that is either standalone or folded into localization. Where such a service exists the gateway MAY use its decision to drop nodes at Step 1 and MUST report them as `consent-denied` (xref:requirements.adoc#n27a[N27a], xref:partial-results.adoc[§11.1]). This is an *efficiency and data-minimisation* measure - it avoids dispatching a query that would be refused anyway, and avoids disclosing to a node that the patient was asked about - not a substitute for the node's check.
+Some deployments can answer the consent question *before* dispatch, from a consent service that is either standalone or folded into localization. Where such a service exists the gateway MAY use its decision to drop nodes at Step 1 and MUST report them as `consent-denied` (xref:requirements.adoc#n27a[N27a], xref:partial-results.adoc#endpoint-status[§11.1]). This is an *efficiency and data-minimisation* measure - it avoids dispatching a query that would be refused anyway, and avoids disclosing to a node that the patient was asked about - not a substitute for the node's check.
 
 It is not the gate, for three reasons:
 

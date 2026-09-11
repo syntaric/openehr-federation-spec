@@ -63,6 +63,6 @@ The asymmetries that matter:
 [#requirement-language]
 == Requirement language
 
-The key words *MUST*, *MUST NOT*, *SHALL*, *SHOULD*, *SHOULD NOT*, *MAY* and *RECOMMENDED* are to be interpreted as described in RFC 2119 / RFC 8174.
+The key words *MUST*, *MUST NOT*, *REQUIRED*, *SHALL*, *SHALL NOT*, *SHOULD*, *SHOULD NOT*, *RECOMMENDED*, *NOT RECOMMENDED*, *MAY* and *OPTIONAL* are to be interpreted as described in RFC 2119 / RFC 8174. The full set is adopted deliberately: RFC 2119 treats these terms as a unit, and defining only the subset a document happens to use leaves the force of the rest formally unestablished.
 
-A note on *bindings.* Where this specification names an IHE profile (PIXm, PDQm, XCPD, PMIR, mCSD) for a role, that is a *proposed binding*: the requirement - that the role be filled - is normative, while the specific profile named to fill it is a proposal open to review. Regional alternatives are documented in xref:annex-b-dutch-gf.adoc[Annex B]
+A note on *bindings.* Where this specification names an IHE profile (PIXm, PDQm, XCPD, PMIR, mCSD) for a role, that is a *proposed binding*: the requirement - that the role be filled - is normative, while the specific profile named to fill it is a proposal open to review. Regional alternatives are documented in xref:annex-b-dutch-gf.adoc[Annex B].
