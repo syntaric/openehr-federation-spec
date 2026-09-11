@@ -7,7 +7,7 @@ This annex documents a *regional alternative* to the IHE bindings: the *Netherla
 ====
 The Dutch Generic Functions bundle localization with the consent check: the NVI lookup is followed by a `HEAD` against the data holder whose status already reflects consent (§B.1), and Mitz answers a closed allow/deny question rather than exposing consents for inspection (§B.6). This annex describes that coupling because it is what the Dutch stack actually does.
 
-It is *not* the model of the normative body, which keeps the two apart: localization yields candidates (xref:requirements.adoc#n4[N4]), consent is enforced at the node (xref:requirements.adoc#n27[N27]), and Step-1 pre-filtering - what Mitz provides here - is optional (xref:requirements.adoc#n27a[N27a], xref:localization.adoc#consent-aware-localization[§14.4]). A Dutch deployment therefore has *both*: the Mitz pre-filter, *and* each node's own check before it releases data. Mitz does not discharge the latter.
+It is *not* the model of the normative body, which keeps the two apart: localization yields candidates (xref:requirements.adoc#n4[N4]), consent is enforced at the node (xref:requirements.adoc#n27[N27]), and Step-1 pre-filtering - what Mitz provides here - is optional (xref:requirements.adoc#n27a[N27a], xref:localization.adoc#consent-aware-localization[§14.3]). A Dutch deployment therefore has *both*: the Mitz pre-filter, *and* each node's own check before it releases data. Mitz does not discharge the latter.
 ====
 
 == B.1 GF-Localization (satisfies N4 / §14)
@@ -47,3 +47,71 @@ It is *not* the model of the normative body, which keeps the two apart: localiza
 * *Mitz* is leading for the national catalogue of consent preferences (the _Mitz afsprakenstelsel_), commonly called the *OTV* (_Online ToestemmingsVoorziening_).
 * Mitz answers a *closed authorization question* (_Gesloten Autorisatievraag_) with an *allow/deny* policy decision; Mitz consents cannot be queried directly. This is the regional realisation of the *optional* Step-1 consent pre-filter (xref:requirements.adoc#n27a[N27a]).
 * Also defined: *DHTV* (_dossierhouderstoestemmingsvoorziening_, a local explicit-consent store, reusing IHE PCF Consent Recorder/Registry actors) and *implicit* consent (_Veronderstelde Toestemming_, NEN 7517).
+
+[#pseudonymised-walkthrough]
+== B.7 Worked example - a pseudonymised identifier through Step 1
+
+xref:reference-flow.adoc[§4.4] and xref:identity-resolution.adoc[§5.3] state that the identifier a client presents MAY be a *pseudonymised* one, and that a node therefore need store *no directly identifying identifier in the CDR* (xref:requirements.adoc#n5[N5]). This section walks that claim through concretely, on the Dutch stack. It is *informative*: it illustrates the normative model, it does not extend it.
+
+The scenario: a clinician's application queries the federation for a patient known to it by *BSN* (the Dutch citizen-service number - a directly identifying identifier, xref:identity-resolution.adoc#directly-identifying-identifier[§5.1]). Two nodes hold data for this patient. Neither stores the BSN.
+
+*Who pseudonymises is a deployment choice*, and this walkthrough has to pick one to stay concrete: here *the application* exchanges the BSN for a pseudonym before it calls the gateway, so the gateway never holds the BSN. The other arrangement - the client presents the BSN and the *gateway* exchanges it - is equally conformant; see the note at the end. Everything from Step 1a onwards is identical either way.
+
+*Step 0 - the façade query.* Having exchanged the BSN for a *pseudonymised BSN* at the national Pseudonymization Service (§B.1), the application submits ordinary AQL naming only that pseudonym:
+
+[source,sql]
+----
+SELECT c/uid/value AS composition_id, c/context/start_time/value AS start_time
+FROM EHR e CONTAINS COMPOSITION c
+WHERE e/ehr_status/subject/external_ref/id/value = 'pbsn:8f2a...c41'
+----
+
+The identifier's issuing namespace is `http://fhir.nl/fhir/NamingSystem/pseudo-bsn`. Nothing about this query is federation-specific (xref:requirements.adoc#n1[N1], xref:requirements.adoc#n2[N2]).
+
+*Step 1a - localization.* The gateway asks the *NVI* which data holders hold data for `pbsn:8f2a...c41` (§B.1). The NVI is indexed on the pseudonym, not the BSN. It returns two custodians, by *URA*; a `HEAD` against each reflects the Mitz consent state (§B.1, §B.6), and this deployment uses that as the optional Step-1 pre-filter (xref:requirements.adoc#n27a[N27a]). Both pass. Registry members the NVI did not return are reported `not-localized` (xref:partial-results.adoc#endpoint-status[§11.1]).
+
+*Step 1b - addressing.* The *Care Services Directory* (§B.2) resolves each URA to its endpoints: a PIX Manager and a CDR base URL.
+
+*Step 1c - cross-reference.* For each node the gateway calls PIXm `$ihe-pix` with `sourceIdentifier=pbsn:8f2a...c41` and `targetSystem` set to that node's `ehr_id` system. Each PIX Manager returns the node's *local* `ehr_id`:
+
+[cols="1,2,2"]
+|===
+| Node | Presented identifier | Returned `ehr_id`
+
+| `node_1` (URA 12345678)
+| `pbsn:8f2a...c41`
+| `7d8e...a19`
+
+| `node_2` (URA 87654321)
+| `pbsn:8f2a...c41`
+| `b3c1...5f0`
+|===
+
+The two `ehr_id` s are unrelated values: an `ehr_id` is meaningless across CDRs (xref:terminology.adoc[§ Key terms]).
+
+*Step 2 - dispatch.* Each node receives *standard, non-federated* AQL keyed on its own `ehr_id`. The pseudonym is consumed at the gateway and does not survive into the dispatched query, its path, its query string or its headers (xref:requirements.adoc#n33[N33], xref:identity-resolution.adoc#identifier-hygiene[§5.4]):
+
+[source,sql]
+----
+SELECT c/uid/value AS composition_id, c/context/start_time/value AS start_time
+FROM EHR e[ehr_id/value='7d8e...a19'] CONTAINS COMPOSITION c
+----
+
+*Step 3 - combine.* The gateway concatenates the rows and emits `meta.endpoints[]`. Had the façade query SELECTed `subject`, the value returned would be the *re-injected input* `pbsn:8f2a...c41` - not a value read from either CDR (xref:requirements.adoc#n5[N5]).
+
+*What this demonstrates.* At no point does a node receive, store or return the BSN, and at no point does it receive the pseudonym either - the pseudonym is a *resolution input*, consumed before dispatch. The only patient-locating value that reaches a node is its own local `ehr_id`. This is the whole of N5's claim: the federation requires no directly identifying identifier in `EHR_STATUS.subject` at any node.
+
+[NOTE]
+.The gateway MAY hold the BSN instead - this is a deployment choice, not a conformance one
+====
+In the variant above the application pseudonymises, so the gateway never sees a BSN. A deployment MAY equally have the *client present the BSN* and the *gateway* exchange it at the Pseudonymization Service during Step 1. That is the ordinary façade case of xref:aql-facade.adoc[§7]: a client identifies the patient the openEHR-idiomatic way, and the gateway consumes that identifier in resolution.
+
+Both are conformant, because the normative constraints are about *what reaches a node*, not about what a client may hand a gateway:
+
+* xref:requirements.adoc#n5[N5] constrains what the *federation may require a node to store* - it does not say a gateway may not receive a directly identifying identifier.
+* xref:requirements.adoc#n33[N33] and xref:identity-resolution.adoc#identifier-hygiene[§5.4] require the gateway to *consume and strip* such an identifier - or reject the query - so that it never appears in the dispatched AQL, path, query string or headers. A gateway that receives a BSN and discharges N33 is exactly as conformant as one that never receives it.
+
+What differs is the *privacy posture*, which is a deployment decision with real consequences: pseudonymising at the application keeps the directly identifying identifier out of the gateway's trust boundary entirely, at the cost of putting the Pseudonymization Service in front of every client. Pseudonymising at the gateway centralises that integration, at the cost of the gateway becoming a system that processes BSNs - with the logging, retention and audit obligations that follow under its own governance. Neither is mandated here.
+====
+
+Two further limits worth stating. First, this constrains what the *federation may require of a node*; a node remains free to hold a BSN for its own purposes under its own governance (xref:requirements.adoc#n34[N34]). Second, the pseudonymisation itself is out of scope - the properties of the pseudonym are the Pseudonymization Service's concern (§B.1), not this specification's.

@@ -38,4 +38,4 @@ This annex collects the IHE profiles named as proposed bindings. The *requiremen
 
 == A.7 End-to-end (advisory §4.5) in IHE terms
 
-`ITI-104 (seed)` → `[PDQm ITI-78/119]` → `XCPD ITI-55 (locate community + local id)` → `PIXm ITI-83 (→ local openEHR ehr_id)` → *standard openEHR AQL by `ehr_id`* → (on identity change) `PMIR ITI-93/94`. See §4.5 for the table and the `$ihe-pix` citation note.
+`ITI-104 (seed)` → `[PDQm ITI-78/119]` → `XCPD ITI-55 (locate community + local id)` → `PIXm ITI-83 (→ local openEHR ehr_id)` → *standard openEHR AQL by `ehr_id`* → (on identity change) `PMIR ITI-93/94`. See the MPI advisory §4.5 for the table and the `$ihe-pix` citation note.

@@ -1,5 +1,6 @@
 = 11. Unresponsive endpoints & partial results
 
+[#endpoint-status]
 == 11.1 Primary carrier: `meta.endpoints[]`
 
 Every node that was in scope MUST appear in `meta.endpoints[]` with a status (and an error where relevant), whether or not it contributed rows (xref:requirements.adoc#n16[N16]). Unresponsive nodes MUST NOT contribute rows. The status set is:
@@ -24,13 +25,22 @@ Every node that was in scope MUST appear in `meta.endpoints[]` with a status (an
 | Consent did not permit this node's inclusion. Set either by an *optional* Step-1 consent pre-filter (xref:requirements.adoc#n27a[N27a], xref:security.adoc[§13.2.1]) or by the node itself refusing on consent grounds (xref:requirements.adoc#n27[N27]); deployments without a consent service use it only in the latter sense.
 
 | `excluded`
-| Deliberately excluded (e.g. not in a directed `FROM ENDPOINT` set).
+| Deliberately excluded *by a decision about this node* - a directive that did not name it (e.g. not in a directed `FROM ENDPOINT` set) or an operator policy that removed it. Some authority acted; contrast `not-localized`, where none did.
+
+| `not-localized`
+| A registry member that localization did not return as a candidate for this query (xref:localization.adoc[§14]). *The node was never asked*, and no decision was made about it: not a directive, not an operator policy, not consent. This is the ordinary outcome for an undirected query - a localizer naming three of nine members leaves six `not-localized` - and it is not a failure.
 |===
+
+The distinction between the last two matters for audit: `excluded` records that something ruled the node out, `not-localized` records that nothing ruled it in. Neither means the node was asked and declined - that is `consent-denied`.
+
+[[in-scope]]*What "in scope" means.* A node is *in scope* for a query if node selection put it there: localization named it, or a directive did. A node reported `excluded` or `not-localized` was *never in scope* - one because a decision removed it before selection completed, the other because nothing selected it. Both are reported, so a client sees the whole federation picture rather than a silently truncated list, but *neither clears `meta.complete`* (<<completeness-flag,§11.4>>, xref:requirements.adoc#n37[N37]): a query is not incomplete for failing to ask a node it never intended to ask. Every other status describes a node that *was* in scope and did not reach `active`, and therefore does clear the flag.
 
 [#http-status-mapping]
 == 11.2 HTTP status mapping (aligned with Exchange-Routing)
 
-The Tier maps errors as follows, aligning with the Exchange-Routing IG's exception table (which separates *intermediary-reported* from *destination-reported* exceptions):
+The Tier maps errors as follows, aligning with the Exchange-Routing IG's exception table (which separates *intermediary-reported* from *destination-reported* exceptions).
+
+This table maps conditions that *fail the request*. Where one of these conditions arises at a single node under the *default best-effort* completion strategy, it does not fail the request: a partial answer is a successful response, and §11.4 governs. The rows below that concern a single node's failure therefore say which completion strategy they assume. Where the two could be read differently, *§11.4 governs* - it is the more specific treatment, xref:requirements.adoc#n37[N37] restates it in the normative requirement set, and it is the rule a client can actually be written against.
 
 [cols="3,1,2"]
 |===
@@ -40,7 +50,11 @@ The Tier maps errors as follows, aligning with the Exchange-Routing IG's excepti
 | *404*
 | intermediary (gateway)
 
-| Node *connection timed out* (no response)
+| Node *connection timed out* (no response), *default best-effort strategy* (xref:partial-results.adoc#best-effort[§11.4])
+| *200*
+| intermediary (gateway); the node is reported `time-out` in `meta.endpoints[]` and `meta.complete` is `false`
+
+| Node *connection timed out* (no response), under *opt-in all-or-nothing completeness* (xref:partial-results.adoc#all-or-nothing[§11.4])
 | *504*
 | intermediary (gateway)
 
@@ -59,7 +73,17 @@ The Tier maps errors as follows, aligning with the Exchange-Routing IG's excepti
 | Node *internal error*
 | *500*
 | node (passed through)
+
+| `ehr_id` *claimed by more than one node*, or a versioned write whose controlling system is not reachable (xref:requirements.adoc#n36[N36], xref:requirements.adoc#n42[N42])
+| *409*
+| intermediary (gateway)
+
+| An ITS-REST area the gateway does not expose (xref:requirements.adoc#n32[N32])
+| *501*
+| intermediary (gateway)
 |===
+
+A node's *internal error* is mapped to `500` and passed through, matching the Exchange-Routing IG's destination-reported column: the error is the destination's, and `502 Bad Gateway` would attribute it to the intermediary. A gateway MAY distinguish the two in the per-endpoint `error` field, which is where the detail belongs.
 
 == 11.3 "Patient found nowhere" is not a 404
 
@@ -70,7 +94,7 @@ If *no* node resolves the patient (all `not-resolved`), the correct response is 
 A fan-out has to decide what to do when *some* nodes answer. This specification makes that decision explicit rather than leaving it to implementers, because a client cannot interpret a result set without knowing which rule produced it.
 
 * [[best-effort]]*The default strategy is best-effort:* the gateway returns the rows it obtained from the nodes that answered within the timeout budget (§11.5), reports every other node in `meta.endpoints[]` with its status, and responds `200`. A partial answer is a *successful* response with an incomplete-coverage marker - not an error. _(xref:requirements.adoc#n37[N37].)_
-* [[completeness-flag]]The gateway MUST make incompleteness *machine-detectable*, not merely inferable by scanning statuses. `meta` MUST carry a `complete` boolean, `true` only when every in-scope node reached status `active`. For FHIR-facing consumers this is additionally surfaced as an `OperationOutcome` warning (xref:conformance.adoc#cp-12[CP-12]). _(xref:requirements.adoc#n37[N37].)_
+* [[completeness-flag]]The gateway MUST make incompleteness *machine-detectable*, not merely inferable by scanning statuses. `meta` MUST carry a `complete` boolean, `true` only when every in-scope node reached status `active`. *A node reported `not-localized` (xref:partial-results.adoc#endpoint-status[§11.1]) was never in scope for this query and does not clear `meta.complete`*: localization naming a subset of the federation is the normal case, not an incomplete answer, and a flag that went false on nearly every undirected query would tell a client nothing. `complete` answers _"did every node I asked answer?"_, not _"did I ask every node?"_ For FHIR-facing consumers this is additionally surfaced as an `OperationOutcome` warning (xref:conformance.adoc#cp-12[CP-12]). _(xref:requirements.adoc#n37[N37].)_
 * [[all-or-nothing]]A deployment MAY offer a stricter *all-or-nothing* mode, in which any node not reaching `active` causes the whole query to fail (`504`, or `424 Failed Dependency`) rather than return partial rows. If offered it MUST be *opt-in per request* - the `openEHR-federation-completeness: all` request header - and MUST be declared in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]). It MUST NOT be the default: silently failing a whole clinical query because one of nine nodes is slow is worse for the clinician than a flagged partial answer.
 * Best-effort applies to *reads*. It does *not* apply to writes: a write is routed to exactly one node (xref:follow-up-routing.adoc[§12.4]) and either succeeds or fails there - there is no partial write in v1.
 * A node that returns an *error* (as opposed to not answering) is treated the same way for completeness purposes: it contributes no rows, appears with a status and the node's error, and clears `meta.complete`.

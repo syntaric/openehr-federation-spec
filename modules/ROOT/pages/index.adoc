@@ -1,7 +1,7 @@
 = Proposal for Federation Tier with AQL - revised
 :navtitle: Overview
 
-*Status:* Draft for review · *Version:* 0.3 (revised) · *Date:* 2026-09-04 ·
+*Status:* {spec-status} · *Version:* {spec-version} · *Date:* {spec-date} ·
 *Supersedes:* _Proposal for Federation Tier with AQL_, openEHR Federation Working Group, 2025-08-20 ·
 *License:* Creative Commons Zero v1.0 Universal (CC0)
 

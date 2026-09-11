@@ -2,182 +2,241 @@
 
 A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirements and a test track.
 
-[cols="1,5,2,1"]
+The *Actor* column names who is scored against the point. Most are the gateway, but not all: a `Node` point is an obligation of a member CDR and a gateway cannot discharge it, and an `Operator` point is verified at admission or in the registry rather than on any request (xref:testing.adoc[§16.2]). A gateway is not marked down for a point whose actor is not the gateway.
+
+Conformance points are *appended, never renumbered* - a CP number is a stable citation, and `#cp-14` is expected to keep deep-linking. Where a point belongs topically next to an existing one, the suffix form (CP-33a) is used instead.
+
+Every normative requirement should be named by at least one conformance point, or by a test track. The closure is computed by `tools/traceability.sh`, which runs in CI: a requirement scored by neither must appear in `tools/traceability-exceptions.txt` with a reason, so "deliberately unscored" is a recorded decision rather than an oversight.
+
+[cols="1,1,5,2,1"]
 |===
-| CP | Statement | Requirements | Track
+| CP | Actor | Statement | Requirements | Track
 
 | [[cp-1]]*CP-1*
+| Gateway
 | The gateway exposes a conformant openEHR Query API and a basic patient query needs no federation-specific syntax.
 | xref:requirements.adoc#n1[N1]
-| 1
+| xref:testing.adoc#track-1[1]
 
 | [[cp-2]]*CP-2*
+| Gateway
 | The gateway accepts a `subject` predicate as façade input and *never* sends `subject` to a node.
 | xref:requirements.adoc#n2[N2], xref:requirements.adoc#n5[N5]
-| 1, 2
+| xref:testing.adoc#track-1[1], xref:testing.adoc#track-2[2]
 
 | [[cp-3]]*CP-3*
+| Gateway
 | `subject` is resolved to a per-node `ehr_id` via the cross-reference service (proposed: PIXm `$ihe-pix`), *outside AQL*.
 | xref:requirements.adoc#n3[N3]
-| 2
+| xref:testing.adoc#track-2[2]
 
 | [[cp-4]]*CP-4*
+| Gateway
 | Nodes are queried with *standard AQL keyed on `ehr_id`* only.
 | xref:requirements.adoc#n7[N7]
-| 2
+| xref:testing.adoc#track-2[2]
 
 | [[cp-5]]*CP-5*
-| Undirected queries derive their node set from localization; ask-all is an explicit fallback. Localization supplies candidates, not consent.
+| Gateway
+| Undirected queries derive their node set from localization; ask-all is an explicit fallback where no localizer is configured. Localization supplies candidates, not consent. With a localizer configured but unreachable, the gateway behaves as it declares in `OPTIONS` - fail-closed by default, reporting every member `not-localized` with the error and dispatching to none, never silently widening to ask-all.
 | xref:requirements.adoc#n4[N4], xref:requirements.adoc#n10[N10]
-| 3, 4
+| xref:testing.adoc#track-3[3], xref:testing.adoc#track-4[4]
 
 | [[cp-6]]*CP-6*
+| Gateway
 | Directed `FROM ENDPOINT` / `ORGANISATION` selects the node set independently of patient resolution; `not-resolved` members are reported, not errored.
 | xref:requirements.adoc#n11[N11]
-| 3
+| xref:testing.adoc#track-3[3]
 
 | [[cp-7]]*CP-7*
+| Gateway
 | A `subject` column in the result is the *re-injected input*, never read from a CDR.
 | xref:requirements.adoc#n5[N5]
-| 2
+| xref:testing.adoc#track-2[2]
 
 | [[cp-8]]*CP-8*
+| Gateway
 | `DISTINCT` and `ORDER BY` are honoured at the Tier.
 | xref:requirements.adoc#n13[N13]
-| 5
+| xref:testing.adoc#track-5[5]
 
 | [[cp-9]]*CP-9*
+| Gateway
 | Default is pass-through (duplicates kept); opt-in `object_id` dedup keeps the originating copy for imported compositions.
 | xref:requirements.adoc#n15[N15]
-| 5
+| xref:testing.adoc#track-5[5]
 
 | [[cp-10]]*CP-10*
+| Gateway
 | Undirected aggregates are blocked unless cross-node-correct; a directed single-node aggregate is allowed.
 | xref:requirements.adoc#n14[N14]
-| 5
+| xref:testing.adoc#track-5[5]
 
 | [[cp-11]]*CP-11*
-| Every in-scope node appears in `meta.endpoints[]` with a status; unresponsive nodes contribute no rows.
+| Gateway
+| Every in-scope node appears in `meta.endpoints[]` with a status from the set of xref:partial-results.adoc#endpoint-status[§11.1]; unresponsive nodes contribute no rows. Registry members localization did not name appear as `not-localized` - reported, but not in scope.
 | xref:requirements.adoc#n16[N16]
-| 4
+| xref:testing.adoc#track-4[4]
 
 | [[cp-12]]*CP-12*
-| Partial results also surface as `OperationOutcome` warning/incomplete for FHIR consumers; status codes follow xref:partial-results.adoc#http-status-mapping[§11.2]; "found nowhere" → 200 + empty rows.
+| Gateway
+| Partial results also surface as `OperationOutcome` warning/incomplete for FHIR consumers; status codes follow xref:partial-results.adoc#http-status-mapping[§11.2] - in particular a node timeout under the default strategy is a `200`, not a `504`; "found nowhere" → 200 + empty rows.
 | xref:requirements.adoc#n6[N6], xref:requirements.adoc#n16[N16]
-| 4
+| xref:testing.adoc#track-4[4]
 
 | [[cp-13]]*CP-13*
+| Gateway
 | The registry maps Organizations, Endpoints and every observed `system_id`/`creating_system_id` → CDR base URL.
 | xref:requirements.adoc#n19[N19], xref:requirements.adoc#n20[N20], xref:requirements.adoc#n21[N21]
-| 6
+| xref:testing.adoc#track-6[6]
 
 | [[cp-14]]*CP-14*
+| Gateway
 | Follow-up *reads* route to the owning CDR by `creating_system_id` (then `endpoint_id`, then ask-all); uids are never rewritten.
 | xref:requirements.adoc#n22[N22]
-| 6
+| xref:testing.adoc#track-6[6]
 
 | [[cp-15]]*CP-15*
+| Gateway
 | Versioned *writes* route to the single controlling CDR; unroutable writes are rejected; new objects target one chosen node.
 | xref:requirements.adoc#n23[N23]
-| 6
+| xref:testing.adoc#track-6[6]
 
 | [[cp-16]]*CP-16*
+| Gateway
 | Client identity is conveyed to the source CDR on every routed follow-up.
 | xref:requirements.adoc#n24[N24]
-| 7
+| xref:testing.adoc#track-7[7]
 
 | [[cp-17]]*CP-17*
+| Gateway
 | The client authenticates to the gateway; the gateway authenticates onward and propagates identity (OAuth 2.0 client-credentials with an RFC 7523 signed JWT client assertion, or an equivalent regional stack).
 | xref:requirements.adoc#n25[N25]
-| 7
+| xref:testing.adoc#track-7[7]
 
 | [[cp-18]]*CP-18*
+| Node
 | Access decisions needing gateway-invisible information are delegated to the source CDR.
 | xref:requirements.adoc#n26[N26]
-| 7
+| xref:testing.adoc#track-7[7]
 
 | [[cp-19]]*CP-19*
-| Every node checks consent before releasing data, regardless of any upstream filtering; Step-1 consent pre-filtering is optional and never the sole gate.
+| Node
+| Every node checks consent before releasing data, regardless of any upstream filtering; Step-1 consent pre-filtering is optional and never the sole gate. The gateway's half - that it does not treat its own pre-filter as the gate - is scored by CP-36.
 | xref:requirements.adoc#n27[N27], xref:requirements.adoc#n27a[N27a]
-| 7
+| xref:testing.adoc#track-7[7]
 
 | [[cp-20]]*CP-20*
+| Operator
 | An openEHR Query API endpoint uses a defined `connectionType` (e.g. `openehr-rest-query`), not `hl7-fhir-rest` and not an informal string.
 | xref:requirements.adoc#n19[N19]
-| 6
+| xref:testing.adoc#track-6[6]
 
 | [[cp-21]]*CP-21*
+| Gateway
 | The gateway serves ITS-REST at its declared base URL with *no mandated prefix*; a client configured from the registry works without `/rest/openehr` or any other hard-coded prefix.
 | xref:requirements.adoc#n28[N28]
-| 9
+| xref:testing.adoc#track-9[9]
 
 | [[cp-22]]*CP-22*
+| Gateway
 | Both EHR addressing forms work: the canonical path `+{base}/v1/ehr/{ehr_id}+` and the AQL predicate `WHERE e/ehr_id/value = …` (and, where supported, `FROM EHR e[ehr_id/value=…]`).
 | xref:requirements.adoc#n29[N29]
-| 9
+| xref:testing.adoc#track-9[9]
 
 | [[cp-23]]*CP-23*
+| Gateway
 | `+OPTIONS {base}/+` returns the supported/unsupported ITS-REST areas, the accepted targeting mechanisms, dedup mode, timeout policy, *and the member endpoints behind the gateway* - without requiring a patient identifier.
 | xref:requirements.adoc#n30[N30]
-| 9
+| xref:testing.adoc#track-9[9]
 
 | [[cp-24]]*CP-24*
+| Gateway
 | A routed write returns `openEHR-federation-endpoint` (and SHOULD, `openEHR-federation-system-id`) with `Location`/`ETag` passed through unmodified.
 | xref:requirements.adoc#n31[N31]
-| 9
+| xref:testing.adoc#track-9[9]
 
 | [[cp-25]]*CP-25*
+| Gateway
 | The DEMOGRAPHIC API is not federated: it is either `501` or single-node-routed, and the behaviour matches what `OPTIONS` declares.
 | xref:requirements.adoc#n32[N32]
-| 9
+| xref:testing.adoc#track-9[9]
 
 | [[cp-26]]*CP-26*
+| Gateway
 | *No identifier leaks into the composed query.* With a directly identifying identifier supplied via `external_ref`, via `PARTY_IDENTIFIED`/`DV_IDENTIFIER`, in a projection and in the query string/headers, node-side capture shows the `ehr_id` and *no* identifier value in the dispatched AQL, path, query string or headers; a query that cannot be brought into that state is rejected `400`, not forwarded. Conversely, a write body is delivered unmodified.
 | xref:requirements.adoc#n33[N33]
-| 10
+| xref:testing.adoc#track-10[10]
 
 | [[cp-27]]*CP-27*
+| Node
 | A node is invocable on `ehr_id` alone, and its environment answers the patient-identifier → `ehr_id` cross-reference; no requirement is placed on what the node stores internally.
 | xref:requirements.adoc#n34[N34]
-| 10
+| xref:testing.adoc#track-10[10]
 
 | [[cp-28]]*CP-28*
+| Gateway
 | Endpoint targeting works *both* in AQL and via the `openEHR-federation-endpoint` request header, on the same stored query; conflicting node sets in one request are rejected `400`. A node set offered as a query parameter (`?endpoint=`) is *not* a supported targeting mechanism.
 | xref:requirements.adoc#n35[N35]
-| 3
+| xref:testing.adoc#track-3[3]
 
 | [[cp-29]]*CP-29*
+| Gateway
 | A write derived from a de-duplicated row reaches the *originating* CDR; a write whose only reachable holder is a copy is rejected `409` rather than forked, and suppressed endpoints stay visible in `meta`.
 | xref:requirements.adoc#n36[N36]
-| 5, 6
+| xref:testing.adoc#track-5[5], xref:testing.adoc#track-6[6]
 
 | [[cp-30]]*CP-30*
-| Best-effort: with one node down, the query returns `200` with the reachable nodes' rows, `meta.complete = false`, and the failed node reported. Opt-in all-or-nothing, where offered, fails the whole query instead.
+| Gateway
+| Best-effort: with one node down, the query returns `200` with the reachable nodes' rows, `meta.complete = false`, and the failed node reported. Opt-in all-or-nothing, where offered and requested, fails the whole query (`504`) instead. An undirected query whose localizer named a subset still returns `meta.complete = true` when every node it named answered - `not-localized` members do not clear the flag.
 | xref:requirements.adoc#n37[N37]
-| 4
+| xref:testing.adoc#track-4[4]
 
 | [[cp-31]]*CP-31*
+| Gateway
 | Timeouts are bounded and visible: a slow node is abandoned at the declared per-node timeout and marked `time-out` (never reported as empty), the overall budget is honoured, `latency_ms` is reported per endpoint, and a client `Prefer: wait=` can shorten but not extend the budget.
 | xref:requirements.adoc#n38[N38], xref:requirements.adoc#n40[N40]
-| 4
+| xref:testing.adoc#track-4[4]
 
 | [[cp-32]]*CP-32*
-| Cross-node result shaping is correct: `ORDER BY` + `LIMIT n` returns the *global* top `n` deterministically; `OFFSET > 0` is rejected or computed correctly (never silently pushed down); an undirected aggregate is rejected `400` with a reason and never answered with per-node aggregate rows.
-| xref:requirements.adoc#n39[N39], xref:requirements.adoc#n14[N14]
-| 5
+| Gateway
+| Cross-node result shaping is correct: `ORDER BY` + `LIMIT n` returns the *global* top `n` deterministically; `OFFSET > 0` is rejected or computed correctly (never silently pushed down); an undirected aggregate is rejected `400` with a reason and never answered with per-node aggregate rows. Per-node execution alone is asserted *not* to be accepted as the federated answer.
+| xref:requirements.adoc#n39[N39], xref:requirements.adoc#n14[N14], xref:requirements.adoc#n9[N9]
+| xref:testing.adoc#track-5[5]
 
 | [[cp-33]]*CP-33*
-| _(Gateway.)_ `ehr_id` routing and integrity: a path `ehr_id` routes by explicit target / binding / index, a write is rejected `400` rather than ask-all-probed, and an `ehr_id` claimed by two nodes yields `409` plus an integrity incident - never a guess.
+| Gateway
+| `ehr_id` routing and integrity: a path `ehr_id` routes by explicit target / binding / index, a write is rejected `400` rather than ask-all-probed, and an `ehr_id` claimed by two nodes yields `409` plus an integrity incident - never a guess.
 | xref:requirements.adoc#n41[N41], xref:requirements.adoc#n42[N42]
-| 6, 11
+| xref:testing.adoc#track-6[6], xref:testing.adoc#track-11[11]
 
 | [[cp-33a]]*CP-33a*
-| _(Federation operator / candidate node.)_ Admission conditions exist and are applied (xref:membership.adoc#identifier-conditions[§12b.2]): a candidate node demonstrates UUID-v4 (or equivalent) `ehr_id` generation, no `ehr_id` reuse across restores/migrations, no adoption of foreign `ehr_id` s on import, a `system_id` unique in the federation, and a working patient-identifier → `ehr_id` exchange. Verified at admission, not per request.
+| Operator
+| Admission conditions exist and are applied (xref:membership.adoc#identifier-conditions[§12b.2]): a candidate node demonstrates UUID-v4 (or equivalent) `ehr_id` generation, no `ehr_id` reuse across restores/migrations, no adoption of foreign `ehr_id` s on import, a `system_id` unique in the federation, and a working patient-identifier → `ehr_id` exchange. Verified at admission, not per request.
 | xref:requirements.adoc#n42a[N42a]
-| 11
+| xref:testing.adoc#track-11[11]
 
 | [[cp-34]]*CP-34*
+| Gateway
 | Definition handling: `+{base}/v1/definition/…+` routes to one explicitly chosen node and no merged catalogue is presented; where fan-out template upload is offered it is explicit, per-node reported, and a partial failure is reported as partial - never as success.
 | xref:requirements.adoc#n43[N43]
-| 9
+| xref:testing.adoc#track-9[9]
+
+| [[cp-35]]*CP-35*
+| Gateway
+| The result envelope is `{q, columns, rows}` + `meta`; rows carry *no* endpoint columns unless ENDPOINT attributes were selected (single-CDR compatibility); an ENDPOINT alias resolves a collision with an EHR-derived column rather than shadowing it; and `columns[]` is the *gateway's* rendering of the client's submitted AQL - identical for the same query regardless of which node answered, or in what order.
+| xref:requirements.adoc#n17[N17], xref:requirements.adoc#n18[N18]
+| xref:testing.adoc#track-1[1]
+
+| [[cp-36]]*CP-36*
+| Gateway
+| The gateway dispatches *only* to nodes where the patient resolved, minus any removed by an optional Step-1 consent pre-filter - and dispatching is never treated as evidence that consent permits release.
+| xref:requirements.adoc#n8[N8]
+| xref:testing.adoc#track-2[2], xref:testing.adoc#track-7[7]
+
+| [[cp-37]]*CP-37*
+| Gateway
+| Selecting ENDPOINT or Organization attributes adds them to the rows; not selecting them leaves the row shape untouched.
+| xref:requirements.adoc#n12[N12]
+| xref:testing.adoc#track-3[3]
 |===
