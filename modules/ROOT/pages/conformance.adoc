@@ -87,7 +87,7 @@ A numbered, testable list feeding xref:testing.adoc[§16]. Each maps to requirem
 | 7
 
 | [[cp-17]]*CP-17*
-| The client authenticates to the gateway; the gateway authenticates onward and propagates identity (signed JWT / Backend Services).
+| The client authenticates to the gateway; the gateway authenticates onward and propagates identity (OAuth 2.0 client-credentials with an RFC 7523 signed JWT client assertion, or an equivalent regional stack).
 | xref:requirements.adoc#n25[N25]
 | 7
 

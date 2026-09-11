@@ -101,7 +101,7 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 | xref:requirements.adoc#n22[N22] | new | - | Follow-up *reads* route to the owning CDR by `creating_system_id`; uids never mutated.
 | xref:requirements.adoc#n23[N23] | new | - | Versioned *writes* route to the single controlling CDR; new objects target one chosen node.
 | xref:requirements.adoc#n24[N24] | new | - | Convey authenticated client identity on every routed follow-up.
-| xref:requirements.adoc#n25[N25] | new | - | Client authenticates to the Tier; the Tier propagates identity onward (signed JWT / Backend Services).
+| xref:requirements.adoc#n25[N25] | new | - | Client authenticates to the Tier; the Tier propagates identity onward (OAuth 2.0 client-credentials with an RFC 7523 signed JWT client assertion).
 | xref:requirements.adoc#n26[N26] | new | - | Delegate access decisions needing gateway-invisible information to the source CDR.
 | xref:requirements.adoc#n27[N27] | new | - | Consent enforcement is the node's obligation, performed regardless of upstream filtering.
 | xref:requirements.adoc#n27a[N27a] | new | - | Step-1 consent pre-filtering is OPTIONAL, where a deployment has a consent service.

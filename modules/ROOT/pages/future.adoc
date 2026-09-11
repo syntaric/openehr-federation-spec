@@ -1,6 +1,8 @@
 = 18. Considerations for future releases
 
 * *Federation-of-federations.* A federation cannot yet be a node of another federation.
+* *End-user-scoped identity conveyance.* xref:security.adoc#identity-conveyance[§13.1] specifies gateway-to-node authentication (OAuth 2.0 + RFC 7523), which authenticates the gateway *as a service*. Conveying the *end-user* behind a query - needed where a node's release decision depends on who is asking, not merely which system - is not yet specified; RFC 8693 Token Exchange and a separately-conveyed OIDC `id_token` are the candidates. Deployments needing it today use their regional stack (xref:annex-b-dutch-gf.adoc[Annex B]).
+* *Sender-constrained tokens in the base profile.* DPoP (RFC 9449) is required by the Dutch GF realisation (xref:annex-b-dutch-gf.adoc[§B.4]) but not by xref:security.adoc#identity-conveyance[§13.1]. Whether bearer tokens are acceptable across organizational trust boundaries, or sender-constraining should be hoisted into the base profile, is left for a future release.
 * *Comprehensive error catalogue.* A full list of mandatory error messages, validation (checksums) and debug information is out of scope for now.
 * *Imported-composition dedup.* xref:deduplication.adoc[§10.2] defines the mechanism; broader reconciliation of independently authored equal data remains open.
 * *Cross-node pagination.* `ORDER BY` + `LIMIT` is made correct at the Tier (xref:requirements.adoc#n39[N39]), but `OFFSET`-based paging is either rejected or served from an optional materialised cursor (xref:partial-results.adoc#aggregation-and-ordering[§11.6]); a federation-wide *stable, resumable* pagination model - continuation tokens with defined semantics under node churn - is not yet specified.

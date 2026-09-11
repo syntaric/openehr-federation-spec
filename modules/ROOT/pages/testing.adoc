@@ -70,7 +70,7 @@ A system declares conformance to one or both profiles (mirroring the Exchange-Ro
 
 | 7
 | *Auth conveyance + consent-deny*
-| The gateway authenticates onward and conveys client identity (signed JWT / Backend Services); sensitive-data decisions are delegated to the node. Consent is exercised in three configurations: *(a)* no consent service - a node denies on consent and the row set and `meta.endpoints[]` reflect it; *(b)* consent service present - a node dropped at Step 1 is reported `consent-denied` and is never dispatched to; *(c)* the *disagreement* case - localization returns a node, the node denies anyway, and the query still succeeds with that node reported. A *directed* query (`FROM ENDPOINT`, no localization) MUST still be consent-checked at the node.
+| The gateway authenticates onward and conveys client identity (OAuth 2.0 client-credentials with an RFC 7523 signed JWT client assertion, verified against the gateway's published JWKS; or the deployment's regional equivalent); sensitive-data decisions are delegated to the node. Consent is exercised in three configurations: *(a)* no consent service - a node denies on consent and the row set and `meta.endpoints[]` reflect it; *(b)* consent service present - a node dropped at Step 1 is reported `consent-denied` and is never dispatched to; *(c)* the *disagreement* case - localization returns a node, the node denies anyway, and the query still succeeds with that node reported. A *directed* query (`FROM ENDPOINT`, no localization) MUST still be consent-checked at the node.
 | xref:requirements.adoc#n24[N24], xref:requirements.adoc#n25[N25], xref:requirements.adoc#n26[N26], xref:requirements.adoc#n27[N27], xref:requirements.adoc#n27a[N27a]
 
 | 8

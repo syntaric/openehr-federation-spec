@@ -30,9 +30,10 @@ It is *not* the model of the normative body, which keeps the two apart: localiza
 
 == B.4 GF-Authentication (satisfies N24, N25 / §13.1)
 
+* *A profile of the base exchange, not an alternative to it.* GF-Authentication uses the same *OAuth 2.0* + *RFC 7523* foundation as xref:security.adoc#identity-conveyance[§13.1], specialising it in two ways: it uses RFC 7523 in *both* roles (authorization grant _and_ client-authentication assertion), and it sender-constrains the resulting access tokens. A node that can verify the base RFC 7523 client assertion is verifying the same construct here, with additional GF-specific claims and validation.
 * Based on *OAuth 2.0* with the *RFC 7523* JWT authorization-grant + client-authentication-assertion extension (transaction *GFI-004*). The JWT authorization grant carries a *Verifiable Presentation*; the client-authentication assertion conveys the client's own identity.
 * Entity identifiers are `did:web` Decentralized Identifiers (DID 1.0; secured by DNSSEC/HTTPS; transaction *GFI-001*); claims are *Verifiable Credentials 1.1* issued via OpenID4VCI 1.0 (*GFI-002*), with a Bitstring Status List for revocation (*GFI-003*).
-* Access tokens are *sender-constrained with DPoP* (RFC 9449, _Demonstrating Proof-of-Possession at the Application Layer_; transaction *GFI-005*).
+* Access tokens are *sender-constrained with DPoP* (RFC 9449, _Demonstrating Proof-of-Possession at the Application Layer_; transaction *GFI-005*). This is a GF addition - the base profile in xref:security.adoc#identity-conveyance[§13.1] does not require sender-constraining.
 * This is the regional realisation of the White Paper's *Conformance Point #2* (signed-JWT identity conveyance).
 
 == B.5 GF-Authorization (satisfies N26, N27 / §13.2)

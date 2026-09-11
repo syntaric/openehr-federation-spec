@@ -1,9 +1,20 @@
 = 13. Authentication & Authorization
 
+[[identity-conveyance]]
 == 13.1 Identity conveyance (client → gateway → node)
 
 * The client MUST authenticate to the Federation Tier (xref:requirements.adoc#n25[N25]). The Tier authenticates *onward* to each node and MUST *propagate the client's identity*, because - per the White Paper - the source server needs it both to enable appropriate audit records on the source server and to allow the source server to make appropriate security decisions about what records are made available.
-* The proposed mechanism is a *signed JWT* / *SMART Backend Services* token exchange: a node hosts an OAuth token endpoint that authenticates the gateway via a *client assertion* (SMART App Launch: Backend Services), and the gateway MAY carry an OpenID Connect `id_token` claim inside its assertion to scope the request to an end-user.
+* The default mechanism is *OAuth 2.0* (RFC 6749) using the *client-credentials* grant with a *signed JWT client assertion* (RFC 7523 §2.2, `client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer`): a node hosts an OAuth token endpoint that authenticates the gateway via that assertion, with the gateway's signing keys published as a *JWKS* (RFC 7517) resolvable by the node. A regional federated-identity stack MAY be used instead (xref:annex-b-dutch-gf.adoc[Annex B]).
+
+[NOTE]
+====
+*End-user scoping is not yet specified.* The exchange above authenticates the *gateway as a service*; it does not by itself convey an end-user. Where a node's release decision depends on _who_ is asking (not merely _which system_), a deployment needs an additional mechanism - candidates are OAuth 2.0 *Token Exchange* (RFC 8693, conveying the end-user as `subject_token` with the gateway as `actor_token`), or an OpenID Connect `id_token` conveyed alongside the client assertion. This specification does not yet mandate either; a future revision is expected to settle it (xref:future.adoc[§18]). Until then, deployments requiring end-user-scoped authorization SHOULD follow their regional stack (xref:annex-b-dutch-gf.adoc[Annex B]).
+====
+
+[NOTE]
+====
+Deployments that also expose FHIR endpoints will find *SMART App Launch: Backend Services* to be a compatible profile of this exchange - it is the same RFC 7523 client assertion with FHIR-specific scopes and discovery layered on top. Conformance to this specification neither requires nor implies SMART conformance, and the FHIR-specific parts (`system/…` scopes, `.well-known/smart-configuration`, CapabilityStatement) do not apply to an openEHR CDR.
+====
 
 == 13.2 Per-node authorization and consent
 
@@ -30,4 +41,6 @@ A *directed* query makes the last point concrete: `FROM ENDPOINT` selects the no
 
 == 13.3 Regional realisation
 
-A deployment MAY realise this handoff with a regional authentication/authorization/consent stack instead of a plain signed-JWT exchange, provided xref:requirements.adoc#n24[N24]–N27 still hold. The Dutch Generic-Functions realisation (federated OAuth with sender-constrained tokens, policy-based authorization, and a national consent service) is documented in *xref:annex-b-dutch-gf.adoc[Annex B (§B.4–§B.6)]*.
+A deployment MAY realise this handoff with a regional authentication/authorization/consent stack instead of the plain RFC 7523 exchange of <<identity-conveyance,§13.1>>, provided xref:requirements.adoc#n24[N24]–N27 still hold. The Dutch Generic-Functions realisation *profiles* that exchange - same OAuth 2.0 + RFC 7523 base, with a Verifiable Presentation carried in the authorization grant, sender-constrained tokens (DPoP), policy-based authorization and a national consent service - and is documented in *xref:annex-b-dutch-gf.adoc[Annex B (§B.4–§B.6)]*.
+
+Note that this specification does *not* mandate sender-constraining (DPoP, RFC 9449) in the base profile; it is a property of the GF realisation. Deployments crossing organizational trust boundaries SHOULD consider whether bearer-token replay is an acceptable risk in their setting.
