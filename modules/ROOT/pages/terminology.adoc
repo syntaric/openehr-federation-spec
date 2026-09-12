@@ -28,7 +28,7 @@ Four identifiers circulate in a federation and are easy to conflate. Three are *
 
 | [[endpoint-id]]*`endpoint_id`*
 | The federation (registry)
-| A *reachable interface* of a node - one base URL with one connection type (xref:requirements.adoc#n19[N19]). One node MAY expose several (e.g. a public and an intra-regional endpoint, or two connection types). This is the identifier used in the `FROM ENDPOINT` directive and the endpoint header (xref:endpoint-directive.adoc[§8]) and returned as the `endpoint_id` row attribute (xref:result-set.adoc[§9.2]).
+| A *reachable interface* of a node - one base URL with one connection type (xref:requirements.adoc#n19[N19]). One node MAY expose several (e.g. a public and an intra-regional endpoint, or two connection types). This is the identifier used in the `FROM ENDPOINT` directive and the endpoint header (xref:endpoint-directive.adoc[§8]) and returned as the `endpoint_id` row attribute (xref:result-set.adoc#endpoint-attributes[§9.3]).
 | Yes; re-addressing a node MUST NOT change it.
 
 | [[system-id]]*`system_id`*

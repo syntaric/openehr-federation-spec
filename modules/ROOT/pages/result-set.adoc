@@ -1,10 +1,43 @@
 = 9. Result-set format & origin metadata
 
-== 9.1 Envelope
+[#its-rest-relationship]
+== 9.1 Relationship to openEHR ITS-REST
 
-The result set MUST follow the `{q, columns, rows}` + `meta` envelope (xref:requirements.adoc#n17[N17]). Endpoint columns appear *only* when ENDPOINT attributes are selected; otherwise the row shape is *identical* to running the same query directly on a single CDR (single-CDR compatibility, xref:requirements.adoc#n17[N17]). ENDPOINT attribute aliases resolve any name collision with EHR-derived columns (xref:requirements.adoc#n18[N18]).
+A federated AQL response *is* an openEHR `RESULT_SET`, as defined by the openEHR Query API in *ITS-REST Release-1.1.0* (19 July 2026). It is not a federation-specific structure that resembles one. This specification does *not* define the envelope; it inherits it, and adds to it.
 
-The example in §9.3 and the field table in §9.4 are *jointly normative* for the envelope: the table fixes the fields and their obligation level, the example fixes their arrangement. Where the two could be read differently, the table governs. A machine-readable JSON Schema for the envelope is planned for a future release (xref:future.adoc[§18]); until it exists, these two are the contract.
+This is the mechanism by which the transparency claim of xref:requirements.adoc#n1[N1] actually holds on the wire: a client that can parse the AQL response of a single CDR can parse a federated one, because it is the same structure. Everything federation-specific lives in an extension point openEHR deliberately left open.
+
+=== What is inherited
+
+ITS-REST defines five top-level members of `RESULT_SET` - `meta`, `name`, `q`, `columns` and `rows` - with their types and obligation levels. This specification does not re-state them; the normative list is the one in ITS-REST Release-1.1.0 (`computable/OAS/query-validation.openapi.yaml`, schema `ResultSet`). Two consequences are worth making explicit, because a reader of this document alone would not know them:
+
+* *`rows` is the only required member.* `meta`, `name`, `q` and `columns` are all optional in ITS-REST. Where this specification requires one of them, that is a *federation* constraint tightening the standard, not a restatement of it - see xref:requirements.adoc#n17[N17].
+* *`name` exists.* It carries the stored-query name in `+[{namespace}::]{query-name}+` form and is meaningful only for stored queries. A gateway exposing `+{base}/v1/definition/query/…+` (xref:rest-facade.adoc[§7a.1]) SHOULD emit it when answering a stored query, exactly as a single CDR would. Earlier drafts of this specification enumerated four members and omitted it; citing ITS-REST by reference is what stops that recurring.
+
+*`rows` entries are ordered arrays of values, not objects.* ITS-REST defines `ResultSetRow` as a JSON array whose *i*-th element corresponds to `columns[i]`. This is the single most consequential inherited rule in this section, because the two serialisations are not interconvertible without the column list, and a gateway that emits objects is not returning a `RESULT_SET`.
+
+=== What this specification adds
+
+`meta` is an ITS-REST `ResultSetMetadata`. That schema declares `additionalProperties: true`, so it is an *open* object by design, and carrying additional keys in it is conformant - not a deviation from xref:requirements.adoc#n1[N1]. This specification uses that extension point for `complete` (xref:partial-results.adoc#completeness-flag[§11.4]), `endpoints[]` (<<endpoint-meta,§9.5>>), `timeout` (xref:partial-results.adoc#timeouts[§11.5]) and `dedup` (xref:deduplication.adoc[§10]).
+
+[IMPORTANT]
+====
+*Federation additions to `meta` are never `_`-prefixed.* The underscore prefix marks the fields openEHR itself defines - `_href`, `_type`, `_schema_version`, `_created`, `_generator`, `_executed_aql` - and is reserved to openEHR. A gateway MUST NOT emit `_complete` or `_endpoints`, and a client MUST NOT expect them. A gateway MAY emit the standard `_`-prefixed fields; this specification neither requires nor forbids them.
+====
+
+=== Which document governs
+
+This specification is normative for its own additions - the `meta` keys above - and for the federation-specific *constraints* it places on inherited members: the `columns[]` provenance rule (<<columns-provenance>>), single-CDR row-shape compatibility and the ENDPOINT attribute set (xref:requirements.adoc#n17[N17], xref:requirements.adoc#n18[N18]). It does *not* redefine `RESULT_SET`.
+
+Where the two documents could be read differently, *ITS-REST governs the inherited members and this specification governs its own additions.*
+
+Both halves are published as JSON Schema alongside this specification: xref:attachment$federated-result-set.schema.json[`federated-result-set.schema.json`] for this envelope, and xref:attachment$options-root.schema.json[`options-root.schema.json`] for the `OPTIONS` body of xref:rest-facade.adoc#options-root[§7a.2].
+
+== 9.2 Envelope
+
+The result set MUST be an ITS-REST `RESULT_SET` (<<its-rest-relationship,§9.1>>) carrying `q`, `columns`, `rows` and `meta` (xref:requirements.adoc#n17[N17]). Endpoint columns appear *only* when ENDPOINT attributes are selected; otherwise the row shape is *identical* to running the same query directly on a single CDR (single-CDR compatibility, xref:requirements.adoc#n17[N17]). ENDPOINT attribute aliases resolve any name collision with EHR-derived columns (xref:requirements.adoc#n18[N18]).
+
+The example in <<example,§9.4>> and the field table in <<endpoint-meta,§9.5>> are *jointly normative for the federation additions* - the `meta` keys this specification contributes - and for the federation-specific constraints of <<its-rest-relationship,§9.1>>: the table fixes the fields and their obligation level, the example fixes their arrangement. Where the two could be read differently, the table governs. They are *not* the contract for the inherited members of `RESULT_SET`; ITS-REST is (<<its-rest-relationship,§9.1>>). Both are now also expressed as xref:attachment$federated-result-set.schema.json[a JSON Schema], which is validated against the example in CI.
 
 [#columns-provenance]
 [IMPORTANT]
@@ -15,7 +48,8 @@ The example in §9.3 and the field table in §9.4 are *jointly normative* for th
 This is not a stylistic preference. Real CDRs disagree on the same query: for `FROM … c CONTAINS COMPOSITION`, one product reports `c/context/start_time/value` (retaining the FROM alias) and another `/context/start_time/value` (stripping it). In a single-CDR deployment the question does not arise - there is one answer. In a fan-out there are *N* candidate answers for a field the envelope treats as singular, so a gateway that echoes whichever node replied first produces output that depends on response scheduling. A client cannot then match `ORDER BY` terms or projections against a path whose shape depends on which node was fastest.
 ====
 
-== 9.2 ENDPOINT attribute set
+[#endpoint-attributes]
+== 9.3 ENDPOINT attribute set
 
 The selectable ENDPOINT attributes are the endpoint/organization provenance fields plus the openEHR-native routing key `system_id`:
 
@@ -38,20 +72,21 @@ The selectable ENDPOINT attributes are the endpoint/organization provenance fiel
 
 Including `system_id` in the row-level attribute set puts the *openEHR-native routing key* in the result, so the Application tier can route a follow-up without a second registry lookup (xref:follow-up-routing.adoc[§12]).
 
-== 9.3 Example
+[#example]
+== 9.4 Example
 
 [source,json]
 ----
 {
   "q": "SELECT p/id AS endpoint_id, p/system_id AS system_id, c/uid/value AS composition_id FROM ENDPOINT p [\"node_1\",\"node_2\"] CONTAINS EHR e CONTAINS COMPOSITION c WHERE e/ehr_status/subject/external_ref/id/value = '12345'",
   "columns": [
-    { "name": "endpoint_id",    "path": "p/id",        "type": "STRING" },
-    { "name": "system_id",      "path": "p/system_id", "type": "STRING" },
-    { "name": "composition_id", "path": "c/uid/value", "type": "STRING" }
+    { "name": "endpoint_id",    "path": "p/id" },
+    { "name": "system_id",      "path": "p/system_id" },
+    { "name": "composition_id", "path": "c/uid/value" }
   ],
   "rows": [
-    { "endpoint_id": "node_1", "system_id": "cdr1.rso.nl", "composition_id": "8849182a-1d4b-4e3d-a3f3-f303d2f4f34b::cdr1.rso.nl::1" },
-    { "endpoint_id": "node_2", "system_id": "cdr2.rso.nl", "composition_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8::cdr2.rso.nl::1" }
+    ["node_1", "cdr1.rso.nl", "8849182a-1d4b-4e3d-a3f3-f303d2f4f34b::cdr1.rso.nl::1"],
+    ["node_2", "cdr2.rso.nl", "6ba7b810-9dad-11d1-80b4-00c04fd430c8::cdr2.rso.nl::1"]
   ],
   "meta": {
     "complete": true,
@@ -69,12 +104,16 @@ Including `system_id` in the row-level attribute set puts the *openEHR-native ro
 }
 ----
 
+*Rows are arrays, and the correspondence to `columns[]` is positional:* `rows[n][i]` is the value of `columns[i]`, per the ITS-REST `ResultSetRow` definition (<<its-rest-relationship,§9.1>>). A row carries no field names of its own; `columns[]` is the only thing that names them. Note that `columns[]` entries carry `name` and `path` and nothing else - ITS-REST defines no `type` member, and a gateway that needs to convey a type does so in the row value itself, as openEHR's own `+{"_type": "DV_TEXT", …}+` form.
+
+This makes the `columns[]` provenance rule of <<columns-provenance>> *more* load-bearing, not less. A client matching an `ORDER BY` term or a projection against the result now depends on column *order* as well as on path shape: if two nodes disagree on a path, the gateway's single rendering is what makes position *i* mean the same thing in every row, and a gateway that echoed a node's rendering would make the meaning of a row position depend on which node replied first.
+
 Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`) - this is what xref:follow-up-routing.adoc[§12] routes on.
 
 `node_3` shows a reported-but-not-queried member: this query was *directed* at `node_1` and `node_2`, so the directive excluded it (xref:partial-results.adoc#endpoint-status[§11.1]). Had the query been undirected and localization simply not named it, its status would be `not-localized` instead. Neither clears `meta.complete`, which is `true` here because every node that *was* in scope answered.
 
 [#endpoint-meta]
-== 9.4 `meta.endpoints[]` fields
+== 9.5 `meta.endpoints[]` fields
 
 `meta.endpoints[]` is the per-node record of what happened, and it is the *normative* carrier for coverage information (xref:partial-results.adoc#endpoint-status[§11.1]). Every in-scope node appears, whether or not it contributed rows.
 
@@ -107,8 +146,10 @@ Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `cre
 | The node-reported or gateway-reported error (xref:partial-results.adoc#http-status-mapping[§11.2]).
 
 | [[meta-latency]]`latency_ms`
-| MUST
-| Wall-clock time the *gateway* observed for its request to this endpoint, in milliseconds. For a `time-out` endpoint this is the elapsed time at abandonment (xref:partial-results.adoc#timeouts[§11.5]). This is the gateway's own measurement, not the node's self-report. _(xref:requirements.adoc#n40[N40].)_
+| MUST, when a query was dispatched to the endpoint
+| Wall-clock time the *gateway* observed for its request to this endpoint, in milliseconds. For a `time-out` endpoint this is the elapsed time at abandonment (xref:partial-results.adoc#timeouts[§11.5]). This is the gateway's own measurement, not the node's self-report.
+
+The obligation follows dispatch, not scope. It is required for `active`, `offline` and `time-out` - the three statuses that describe an attempted request. It is *not* required for the statuses settled *before* any request exists to time: `excluded` and `not-localized` (the node was never in scope, xref:partial-results.adoc#in-scope[§11.1]) and `not-resolved` or a pre-filtered `consent-denied` (settled during Step-1 resolution, xref:identity-resolution.adoc[§5], xref:security.adoc[§13.2.1]). A gateway MUST omit the field in those cases rather than report a `0` that reads as *"answered instantly"*. _(xref:requirements.adoc#n40[N40].)_
 
 | [[meta-version]]`product` / `version`
 | SHOULD
@@ -128,6 +169,6 @@ Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `cre
 Why xref:result-set.adoc#meta-latency[latency] and xref:result-set.adoc#meta-version[version] belong here: a federated query is only as good as its slowest and its oldest member, and an operator debugging *"why is this slow"* or *"why does node 3 not support this AQL feature"* otherwise has to correlate gateway logs by hand. The same fields appear in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]) - `product` and `version` as the same two separate fields, latency as an aggregate over recent requests rather than this request's measurement.
 
 [#response-headers]
-== 9.5 Responses with no envelope: headers
+== 9.6 Responses with no envelope: headers
 
 An AQL response carries `meta`. A *write* or a *routed ITS-REST read* does not - a `201 Created` has only headers. The provenance that `meta.endpoints[]` carries for a query is therefore carried by the `openEHR-federation-endpoint` / `openEHR-federation-system-id` response headers on those requests; see xref:rest-facade.adoc#write-headers[§7a.3] and xref:requirements.adoc#n31[N31].

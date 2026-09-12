@@ -43,6 +43,38 @@ neither must be listed in `tools/traceability-exceptions.txt` with a reason.
 Both also run in CI on every push and pull request
 (`.github/workflows/validate.yml`).
 
+## The published JSON Schemas
+
+Two wire structures have machine-readable contracts in
+`modules/ROOT/attachments/`, published alongside the site and validated in CI by
+`tools/check-schemas.sh` (run it before opening a PR):
+
+| Schema | Governs | Upstream |
+| --- | --- | --- |
+| `federated-result-set.schema.json` | The AQL result envelope (§9) | **openEHR ITS-REST Release-1.1.0.** The envelope *is* a `RESULT_SET`; the schema inlines a constrained subset of the ITS-REST definitions rather than `$ref`-ing them by URL, so CI does not depend on a third-party site being reachable. |
+| `options-root.schema.json` | The `OPTIONS {base}/` body (§7a.2) | **None.** Entirely federation-defined, which is why it needs a schema more than the envelope does. |
+
+**Changing the envelope or the `OPTIONS` body means changing the schema in the same
+PR.** A schema that lags the prose is worse than no schema: it makes a stale contract
+look enforced. Three rules follow from that:
+
+- **Add the schema change to the same commit as the prose change.** `check-schemas.sh`
+  validates the spec's own `[source,json]` examples, so a prose change that updates an
+  example will fail CI until the schema agrees — which is the gate working, not a
+  nuisance to route around.
+- **Do not tighten a schema beyond what the prose says.** If the schema needs a
+  constraint the prose does not state, the prose is what is incomplete. Fix it there
+  first; writing these schemas is how §9.5's unconditional `latency_ms` MUST and two
+  missing `OPTIONS` keys were found.
+- **Never add federation constraints inside `$defs/itsRest`.** That subtree is a
+  restatement of someone else's standard, and its value is that a reader can tell at a
+  glance which rules this specification owns. Constrain at the federation level instead.
+
+Re-binding to a later ITS-REST release is a deliberate act, not a refresh: re-fetch
+`computable/OAS/query-validation.openapi.yaml` for the new release, diff `ResultSet`,
+`ResultSetMetadata`, `ResultSetColumn` and `ResultSetRow` against the inlined subset, and
+update §9.1, N17 and the schema's `$comment` together.
+
 ## Bumping the version
 
 Most version literals come from attributes in `antora.yml`
@@ -54,7 +86,7 @@ Four sites cannot, and must be bumped by hand together:
 | `antora.yml`'s own `version:` | The Antora component version. It carries the **minor** version only (`0.3`) — a patch release replaces its predecessor in place, so there is no version selector and no stale URLs. Bump it only for a minor release. |
 | `package.json`'s `version` | Outside Antora's attribute scope. |
 | `README.md` | GitHub Markdown; no attribute expansion. |
-| `rest-facade.adoc`'s `"spec_version": "0.3"` | Inside a `[source,json]` block. Substituting there needs `subs="attributes+"`, which makes the example non-copy-pasteable. It is also **deliberately `major.minor`**: the field reports the wire contract a gateway implements, and patch releases do not change it — see §7a.2. Leave it alone for a patch release. |
+| `rest-facade.adoc`'s `"spec_version": "0.4"` | Inside a `[source,json]` block. Substituting there needs `subs="attributes+"`, which makes the example non-copy-pasteable. It is also **deliberately `major.minor`**: the field reports the wire contract a gateway implements, and patch releases do not change it — see §7a.2. Leave it alone for a patch release; bump it for a minor one. `options-root.schema.json` enforces the `major.minor` shape with a `pattern`, so a three-component value fails CI. |
 
 ## What to edit
 

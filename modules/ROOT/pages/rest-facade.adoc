@@ -33,14 +33,22 @@ Transparency is only credible if the *boundaries* are stated. This section there
 
 A client (and a test harness) needs a machine-readable answer to _"what does this gateway actually do, and what is behind it?"_.
 
+[NOTE]
+====
+*This body has no ITS-REST counterpart.* Unlike the AQL result envelope, which *is* an openEHR `RESULT_SET` and inherits most of its contract from ITS-REST Release-1.1.0 (xref:result-set.adoc#its-rest-relationship[§9.1]), the `+OPTIONS {base}/+` body is defined entirely by this specification. openEHR specifies no gateway self-description resource, so there is no upstream document to defer to and nothing here is inherited: every key below is normative *here* or nowhere.
+
+It follows that the body is versioned with this specification and not separately - `federation.spec_version` is its only version marker. Its contract is xref:attachment$options-root.schema.json[`options-root.schema.json`], published alongside this specification and validated against the example below in CI.
+====
+
 * [[options-root]]A gateway MUST implement `+OPTIONS {base}/+` returning a description of the federation surface: the ITS-REST areas it supports (per §7a.1 above), which are federated vs. single-node-routed, which are unsupported, the dedup mode (xref:deduplication.adoc[§10]), and the gateway's timeout policy (xref:partial-results.adoc[§11.5]). _(xref:requirements.adoc#n30[N30].)_
-* The response MUST include the *member endpoints behind the gateway* - the same identifiers usable in a directive (xref:endpoint-directive.adoc[§8]) - each with at least `id`, `organisation`, and `status`, and SHOULD include the owning `node_id` (xref:terminology.adoc#node-id[§ The four identifiers]). It SHOULD include `product` and `version` as *separate fields*, matching xref:result-set.adoc#endpoint-meta[§9.4], and a representative latency where the gateway tracks one.
+* The response MUST include the *member endpoints behind the gateway* - the same identifiers usable in a directive (xref:endpoint-directive.adoc[§8]) - each with at least `id`, `organisation`, and `status`, and SHOULD include the owning `node_id` (xref:terminology.adoc#node-id[§ The four identifiers]). It SHOULD include `product` and `version` as *separate fields*, matching xref:result-set.adoc#endpoint-meta[§9.5], and a representative latency where the gateway tracks one.
 * [[endpoint-membership-status]]An endpoint's `status` here is *membership and health* information - whether this member is in service - and is *not* the per-query status vocabulary of xref:partial-results.adoc#endpoint-status[§11.1]. The two answer different questions: this one describes the federation's standing configuration, `meta.endpoints[]` describes what happened to one query. A value such as `not-localized` is meaningless here, and `active` here does not predict `active` there.
-* Latency reported here is an *aggregate* over recent requests, not the per-query measurement of xref:result-set.adoc#endpoint-meta[§9.4]; a gateway reporting one SHOULD name the statistic in the field (e.g. `latency_ms_p50`) so the two are not confused.
+* This specification does *not* define a closed vocabulary for the membership status: it is a free-form string whose values a deployment chooses, and a client MUST NOT assume a fixed set. `active` is the conventional value for a member in service, and the schema treats the field as an unconstrained string precisely so that no implementer reads the §11.1 enum into it by default. Fixing a vocabulary here is deferred (xref:future.adoc[§18]) - it is a membership-lifecycle question, and this release does not specify that lifecycle (xref:membership.adoc[§12b]).
+* Latency reported here is an *aggregate* over recent requests, not the per-query measurement of xref:result-set.adoc#endpoint-meta[§9.5]; a gateway reporting one SHOULD name the statistic in the field (e.g. `latency_ms_p50`) so the two are not confused.
 * The response MUST additionally declare every behaviour this specification requires be declared under xref:requirements.adoc#n30[N30]: whether all-or-nothing completeness is offered (xref:requirements.adoc#n37[N37]), the `OFFSET > 0` strategy (xref:requirements.adoc#n39[N39]), which decomposable aggregates are supported if any (xref:partial-results.adoc#aggregation-and-ordering[§11.6.3]), whether fan-out template upload is offered (xref:requirements.adoc#n43[N43]), the behaviour when localization is unavailable (xref:localization.adoc[§14.1]), and the JWKS location (xref:security.adoc#jwks-discovery[§13.1]).
 * The endpoint list is *federation membership information*, not patient data: it MUST NOT be gated on a patient identifier, and it MUST be subject to the gateway's normal authentication (xref:security.adoc[§13]). A deployment MAY restrict the detail returned to unauthenticated callers.
 * `OPTIONS` on a *sub-path* (e.g. `+OPTIONS {base}/v1/ehr/{ehr_id}+`) SHOULD return the HTTP methods allowed for that resource, per ordinary HTTP semantics.
-* `federation.spec_version` carries the version of this specification the gateway implements, in `major.minor` form. Patch releases are editorial and do not change the wire contract, so a gateway implementing 0.3.1 reports `"0.3"`; a client MUST NOT match on a patch component.
+* `federation.spec_version` carries the version of this specification the gateway implements, in `major.minor` form. Patch releases are editorial and do not change the wire contract, so a gateway implementing 0.4.0 reports `"0.4"` and would still report `"0.4"` at 0.4.1; a client MUST NOT match on a patch component. A *minor* release may change the wire contract and therefore does change this value - 0.4.0 did, by correcting `rows` to the ITS-REST array form (xref:changes-from-2025-08-20.adoc#its-rest-alignment[Changes]).
 
 .Example `OPTIONS /` response body
 [source,json]
@@ -48,11 +56,19 @@ A client (and a test harness) needs a machine-readable answer to _"what does thi
 {
   "federation": {
     "id": "rso-zl",
-    "spec_version": "0.3",
+    "spec_version": "0.4",
     "aql": { "fan_out": true, "endpoint_directive": true, "endpoint_header": true },
-    "dedup": { "default": "none", "modes": ["none", "version-identity"] },
+    "dedup": {
+      "default": "none",
+      "modes": ["none", "version-identity"],
+      "request_header": "openEHR-federation-dedup"
+    },
     "timeout": { "per_node_ms": 5000, "overall_ms": 15000, "policy": "best-effort" },
-    "completeness": { "default": "best-effort", "all_or_nothing": true },
+    "completeness": {
+      "default": "best-effort",
+      "all_or_nothing": true,
+      "opt_in": { "header": "openEHR-federation-completeness", "value": "all" }
+    },
     "paging": { "offset_strategy": "reject" },
     "aggregates": { "decomposable": ["COUNT", "SUM", "MIN", "MAX"] },
     "definition": { "fan_out_template_upload": false },
@@ -78,6 +94,6 @@ A client (and a test harness) needs a machine-readable answer to _"what does thi
 
 An AQL result set carries provenance in `meta.endpoints[]` (xref:result-set.adoc[§9]). A *write* has no such envelope: `+POST {base}/v1/ehr/{ehr_id}/composition+` returns a `201` with `Location` and `ETag`, and nothing else.
 
-* [[write-headers]]On every request the gateway routed or dispatched to a single node - including `POST`, `PUT` and `DELETE` - the gateway MUST return the *acting endpoint's identifier* in the `openEHR-federation-endpoint` response header, and SHOULD return the node's `system_id` in `openEHR-federation-system-id`. _(xref:requirements.adoc#n31[N31], xref:result-set.adoc[§9.5].)_
+* [[write-headers]]On every request the gateway routed or dispatched to a single node - including `POST`, `PUT` and `DELETE` - the gateway MUST return the *acting endpoint's identifier* in the `openEHR-federation-endpoint` response header, and SHOULD return the node's `system_id` in `openEHR-federation-system-id`. _(xref:requirements.adoc#n31[N31], xref:result-set.adoc#response-headers[§9.6].)_
 * The gateway MUST pass the node's `Location` and `ETag` through *unmodified* - openEHR uids are never rewritten (xref:requirements.adoc#n22[N22]). Because the `ETag` of a commit is an `OBJECT_VERSION_ID`, it already carries the `creating_system_id`; the headers above are a convenience and an audit aid, not a replacement for it.
 * These headers SHOULD also be set on federated AQL responses, listing the endpoints that contributed, but `meta.endpoints[]` remains the *normative* carrier there (xref:partial-results.adoc#endpoint-status[§11.1]).

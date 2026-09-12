@@ -62,7 +62,7 @@ Every ITS-REST resource below `+{base}/v1/ehr/{ehr_id}+` is addressed by an `ehr
 * [[ehr-id-route-order]]The gateway MUST determine the owning node for a path `ehr_id` in this priority order, and MUST NOT skip to a later step while an earlier one yields an unambiguous answer:
 +
 --
-. An *explicit target* on the request - `openEHR-federation-endpoint` (xref:endpoint-directive.adoc#header-alternative[§8.4]). This is the unambiguous case and is *RECOMMENDED for all clients doing follow-ups*: the row the client is acting on carried its `endpoint_id` (xref:result-set.adoc[§9.2]), so the client already knows the answer and should say so.
+. An *explicit target* on the request - `openEHR-federation-endpoint` (xref:endpoint-directive.adoc#header-alternative[§8.4]). This is the unambiguous case and is *RECOMMENDED for all clients doing follow-ups*: the row the client is acting on carried its `endpoint_id` (xref:result-set.adoc#endpoint-attributes[§9.3]), so the client already knows the answer and should say so.
 . A *resolution binding* the gateway holds for this client session - the `{node, ehr_id}` set from a preceding Step-1 resolution (xref:identity-resolution.adoc[§5.2]).
 . The gateway's *`ehr_id` → node index*, where it maintains one.
 . An *ask-all* probe (`+GET {base}/v1/ehr/{ehr_id}+` at each member node), for *reads only*.
@@ -93,7 +93,7 @@ An application that stores a template at one node and then commits a `COMPOSITIO
 +
 --
 . *opt-in and explicit* - a distinct request (RECOMMENDED: `openEHR-federation-endpoint: *`, or an explicit multi-endpoint list), never the default interpretation of a plain `PUT`;
-. *reported per node* - the response MUST carry a per-endpoint outcome in the same shape as `meta.endpoints[]` (xref:result-set.adoc#endpoint-meta[§9.4]), so the client sees exactly where the template now exists;
+. *reported per node* - the response MUST carry a per-endpoint outcome in the same shape as `meta.endpoints[]` (xref:result-set.adoc#endpoint-meta[§9.5]), so the client sees exactly where the template now exists;
 . *not presented as atomic* - it is a *broadcast*, not a transaction. If some nodes accept and others fail, the gateway MUST return a partial-success status (`207`-style per-endpoint reporting, or `200` with the per-endpoint outcomes and `meta.complete = false`) and MUST NOT roll back the successes. It MUST NOT report overall success while any node failed;
 . *declared* in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]).
 --

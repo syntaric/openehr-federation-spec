@@ -65,7 +65,7 @@ This note accompanies *_Proposal for Federation Tier with AQL - revised_* and re
 
 | C12
 | *Endpoint targeting is supported both in and outside the AQL.* The gateway must accept `FROM ENDPOINT` *and* the `openEHR-federation-endpoint` request header (a header, never a query parameter); a client needs only one. Conflicting node sets in one request are rejected rather than merged. Provenance is carried on write responses as headers, and `meta.endpoints[]` gains `latency_ms`, `product`/`version` and `row_count`.
-| xref:endpoint-directive.adoc#header-alternative[§8.4] (N35), xref:result-set.adoc#endpoint-meta[§9.4] (N40, N31)
+| xref:endpoint-directive.adoc#header-alternative[§8.4] (N35), xref:result-set.adoc#endpoint-meta[§9.5] (N40, N31)
 | Review meeting: stored and user-authored AQL should not have to be rewritten to retarget it; and writes have no `meta` to carry provenance.
 |===
 
@@ -125,6 +125,62 @@ The 2025-08-20 proposal had 14 numbered requirements. The revised spec renumbers
 |===
 
 *Dropped / folded:* old *#5* (standalone Record Locator Service requirement) is split into localization (N4), addressing (N21/§15) and cross-reference (N3). The old federated `WHERE …/subject` example is replaced by the xref:aql-facade.adoc[§7] before→after rewrite.
+
+[#its-rest-alignment]
+== 0.4.0: alignment with openEHR ITS-REST, and published schemas
+
+Answering the question _"is the federated AQL response not standard openEHR?"_ surfaced something no earlier review had noticed: *most of the result envelope was already normatively defined by openEHR ITS-REST, and this specification never said so.* xref:result-set.adoc[§9] asserted a `{q, columns, rows}` + `meta` envelope as though inventing it, and 0.3.1 made that worse by declaring its own example and table "jointly normative" for the whole structure - which this specification does not get to be.
+
+The remedy is the same in each case: *cite the standard that already exists, and scope this specification's contract to what it actually adds.* Bound release: *ITS-REST Release-1.1.0* (19 July 2026) - a named release rather than `latest`, because a specification that cites a moving target is not a contract.
+
+[cols="1,4,2,3"]
+|===
+| # | Finding | Where in the spec | Disposition
+
+| F1
+| *`meta` extension is conformant.* ITS-REST declares `ResultSetMetadata` with `additionalProperties: true`, so `complete`, `endpoints[]`, `timeout` and `dedup` are legitimate extensions of a standard open object - no tension with xref:requirements.adoc#n1[N1]. The specification never said this, so an implementer could not tell.
+| xref:result-set.adoc#its-rest-relationship[§9.1]
+| *Stated.* The reassuring finding, and the one most worth writing down.
+
+| F2
+| *`name` was missing.* ITS-REST has five top-level members; N17 mandated four and never mentioned `name`. Minor - it is optional and meaningful only for stored queries - but xref:rest-facade.adoc[§7a.1] lists `+{base}/v1/definition/query/…+` as an exposed area, so stored queries *are* in scope, and a gateway built strictly to N17 omitted a standard member.
+| xref:requirements.adoc#n17[N17], xref:result-set.adoc#its-rest-relationship[§9.1]
+| *Adopted by reference.* N17 now cites the ITS-REST member list rather than re-enumerating it, so the list cannot drift from ITS-REST again.
+
+| F3
+| *The §9 example contradicted ITS-REST on `rows`.* The example serialised rows as *objects* keyed by column name; ITS-REST defines `ResultSetRow` as an *ordered array of values*. Not a documentation nit: a wire-format divergence in the one artifact 0.3.1 called normative, on which two vendors reading the two documents would have serialised differently.
+| xref:result-set.adoc#example[§9.4], xref:requirements.adoc#n17[N17], xref:conformance.adoc#cp-35[CP-35]
+| *Resolved in favour of ITS-REST; the example was wrong and is corrected.* The `columns[]`/row correspondence is now positional, which makes the xref:result-set.adoc#columns-provenance[§9.2] provenance rule *more* load-bearing, not less - a client matching `ORDER BY` terms now depends on column order as well as path. Both reference implementations emitted objects and are corrected to match.
+
+| F4
+| *The underscore convention was unstated.* Standard `meta` fields are `_`-prefixed and the federation's additions are not. That is correct - the prefix marks openEHR-defined fields - but the specification never said so, and an implementer had no way to know `_complete` was not intended.
+| xref:result-set.adoc#its-rest-relationship[§9.1], xref:requirements.adoc#n17[N17]
+| *Stated normatively.* The `_` prefix is reserved to openEHR; federation additions are never prefixed.
+
+| F5
+| *`latency_ms` was an unconditional MUST.* N40 and the §9.5 table required it of every endpoint, including those reported `excluded` or `not-localized` - which were *never asked*, and so were never timed. Writing the schema is what exposed it: the rule as written obliged a gateway to invent a measurement.
+| xref:result-set.adoc#endpoint-meta[§9.5], xref:requirements.adoc#n40[N40]
+| *Scoped to dispatch.* Required for `active`, `offline` and `time-out`; MUST be omitted rather than invented for the statuses settled before any request existed to time - including `not-resolved`, which is *in scope* (so it clears `complete`) yet was never dispatched to.
+
+| F6
+| *Two `OPTIONS` keys were required in prose but absent from the example.* §11.4 requires all-or-nothing completeness be opt-in per request via a named header, and §10 gives dedup a selecting header; the 0.3.1 example declared `all_or_nothing: true` without saying how to select it, and omitted `dedup.request_header`. Both reference implementations emit them.
+| xref:rest-facade.adoc#options-root[§7a.2]
+| *Added to the example*, and `opt_in` is now conditionally required by the schema whenever `all_or_nothing` is `true`.
+
+| F7
+| *The membership status vocabulary was undefined.* §7a.2 said what the `OPTIONS` endpoint status is *not* (the §11.1 per-query vocabulary) but never said what it *is*, implying a closed set that does not exist.
+| xref:rest-facade.adoc#endpoint-membership-status[§7a.2]
+| *Declared open.* It is a free-form string; `active` is conventional. Fixing a vocabulary is a membership-lifecycle question this release does not specify (xref:future.adoc[§18]). The two schemas model the two statuses as genuinely different types - one a closed seven-value enum, the other an unconstrained string - so the distinction is now enforceable rather than merely asserted.
+|===
+
+*Two JSON Schemas are now published and enforced in CI* (xref:future.adoc[§18] previously promised them):
+
+* xref:attachment$federated-result-set.schema.json[`federated-result-set.schema.json`] - the result envelope. It does not restate `RESULT_SET`; it inlines a constrained subset of the ITS-REST definitions, each commented with its source, and adds the federation's `meta` constraints. Inlined rather than `$ref`-ed by URL so validation is self-contained and CI does not depend on a third-party site being reachable.
+* xref:attachment$options-root.schema.json[`options-root.schema.json`] - the `OPTIONS` body, which has *no* upstream standard and is therefore normative in this specification alone.
+
+`tools/check-schemas.sh` validates every whole-instance `[source,json]` block in the specification against the schema that governs it, and compiles both schemas. It would have caught F3 automatically, and did catch F5 and F6 while being written.
+
+*This release is 0.4.0, not 0.3.2:* correcting `rows` changes the wire contract, so `federation.spec_version` moves from `"0.3"` to `"0.4"`.
 
 == Other notable edits
 

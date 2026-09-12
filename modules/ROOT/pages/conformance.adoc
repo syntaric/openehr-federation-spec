@@ -224,7 +224,7 @@ Every normative requirement should be named by at least one conformance point, o
 
 | [[cp-35]]*CP-35*
 | Gateway
-| The result envelope is `{q, columns, rows}` + `meta`; rows carry *no* endpoint columns unless ENDPOINT attributes were selected (single-CDR compatibility); an ENDPOINT alias resolves a collision with an EHR-derived column rather than shadowing it; and `columns[]` is the *gateway's* rendering of the client's submitted AQL - identical for the same query regardless of which node answered, or in what order.
+| The result envelope validates as an ITS-REST Release-1.1.0 `RESULT_SET` - in particular `rows` entries are *ordered arrays* positionally matching `columns[]`, not objects - carrying `q`, `columns`, `rows` and `meta`, with the federation's `meta` additions *unprefixed* (no `_complete`, no `_endpoints`); rows carry *no* endpoint columns unless ENDPOINT attributes were selected (single-CDR compatibility); an ENDPOINT alias resolves a collision with an EHR-derived column rather than shadowing it; and `columns[]` is the *gateway's* rendering of the client's submitted AQL - identical for the same query regardless of which node answered, or in what order. Mechanically checkable against xref:attachment$federated-result-set.schema.json[`federated-result-set.schema.json`].
 | xref:requirements.adoc#n17[N17], xref:requirements.adoc#n18[N18]
 | xref:testing.adoc#track-1[1]
 

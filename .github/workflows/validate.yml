@@ -49,3 +49,10 @@ jobs:
       # fragment resolves to an anchor on it. This checks the rendered site.
       - name: Check in-page anchors
         run: tools/check-anchors.sh
+
+      # The published JSON Schemas are only a contract if something enforces
+      # them against the spec's own examples. Without this the schema and the
+      # example beside it can disagree - which is how §9's example came to
+      # serialise `rows` as objects while claiming ITS-REST conformance.
+      - name: Check JSON examples against the published schemas
+        run: tools/check-schemas.sh
