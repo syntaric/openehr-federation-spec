@@ -48,7 +48,7 @@ It follows that the body is versioned with this specification and not separately
 * The response MUST additionally declare every behaviour this specification requires be declared under xref:requirements.adoc#n30[N30]: whether all-or-nothing completeness is offered (xref:requirements.adoc#n37[N37]), the `OFFSET > 0` strategy (xref:requirements.adoc#n39[N39]), which decomposable aggregates are supported if any (xref:partial-results.adoc#aggregation-and-ordering[§11.6.3]), whether fan-out template upload is offered (xref:requirements.adoc#n43[N43]), the behaviour when localization is unavailable (xref:localization.adoc[§14.1]), and the JWKS location (xref:security.adoc#jwks-discovery[§13.1]).
 * The endpoint list is *federation membership information*, not patient data: it MUST NOT be gated on a patient identifier, and it MUST be subject to the gateway's normal authentication (xref:security.adoc[§13]). A deployment MAY restrict the detail returned to unauthenticated callers.
 * `OPTIONS` on a *sub-path* (e.g. `+OPTIONS {base}/v1/ehr/{ehr_id}+`) SHOULD return the HTTP methods allowed for that resource, per ordinary HTTP semantics.
-* `federation.spec_version` carries the version of this specification the gateway implements, in `major.minor` form. Patch releases are editorial and do not change the wire contract, so a gateway implementing 0.4.0 reports `"0.4"` and would still report `"0.4"` at 0.4.1; a client MUST NOT match on a patch component. A *minor* release may change the wire contract and therefore does change this value - 0.4.0 did, by correcting `rows` to the ITS-REST array form (xref:changes-from-2025-08-20.adoc#its-rest-alignment[Changes]).
+* `federation.spec_version` carries the version of this specification the gateway implements, in `major.minor` form. Patch releases are editorial and do not change the wire contract, so a gateway implementing 0.9.0 reports `"0.9"` and would still report `"0.9"` at 0.9.1; a client MUST NOT match on a patch component. A *minor* release may change the wire contract and therefore does change this value - 0.4.0 did, by correcting `rows` to the ITS-REST array form (xref:changes-from-2025-08-20.adoc#its-rest-alignment[Changes]). 0.9.0 changes no wire structure, but it is a minor release and so does move the value, from `"0.4"` to `"0.9"`: the field identifies *which* release a gateway was built against, and a client pinning `"0.4"` should be told that the document has moved on (xref:changes-from-2025-08-20.adoc#implementation-validated[Changes]).
 
 .Example `OPTIONS /` response body
 [source,json]
@@ -56,7 +56,7 @@ It follows that the body is versioned with this specification and not separately
 {
   "federation": {
     "id": "rso-zl",
-    "spec_version": "0.4",
+    "spec_version": "0.9",
     "aql": { "fan_out": true, "endpoint_directive": true, "endpoint_header": true },
     "dedup": {
       "default": "none",

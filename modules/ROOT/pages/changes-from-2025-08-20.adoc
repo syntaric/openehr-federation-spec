@@ -182,6 +182,19 @@ The remedy is the same in each case: *cite the standard that already exists, and
 
 *This release is 0.4.0, not 0.3.2:* correcting `rows` changes the wire contract, so `federation.spec_version` moves from `"0.3"` to `"0.4"`.
 
+[#implementation-validated]
+== 0.9.0: validated by implementation
+
+This release changes no normative requirement, no wire structure and no schema. What changed is the specification's *standing*: every section of the normative body has now been built, against real openEHR CDRs, by a https://github.com/syntaric/openehr-federation-ref[reference implementation] whose conformance suite mirrors xref:conformance.adoc[§17] one-to-one. A specification that has been implemented end to end is a different artifact from one that has only been reviewed, and the version number should say so.
+
+*Why 0.9.0 and not 0.5.0.* The jump is deliberate and marks distance from 1.0 rather than volume of change. The document is feature-complete for its stated scope and has survived implementation; what remains before 1.0 is external - working-group review, a second independent implementation, and settling the items xref:future.adoc[§18] defers. Numbering 0.5.0 would have understated how far the text has already been exercised.
+
+*What implementation actually surfaced* is recorded in place rather than repeated here: the 0.4.0 findings above (F1-F7) were themselves found by building the thing, and the corrections they describe shipped in 0.4.0 as they were discovered. This release closes that cycle rather than opening a new one.
+
+*Status moves from "Draft for review" to "Release candidate"*, which is a statement about stability, not about finality: the specification remains open for comment and nothing in it is frozen. A release candidate is what may still be withdrawn.
+
+*`federation.spec_version` moves from `"0.4"` to `"0.9"`.* This is the one client-visible consequence. The field is `major.minor` and tracks minor releases (xref:rest-facade.adoc#options-root[§7a.2]), so it moves even though no structure changed - it reports which release a gateway was built against, and a client pinned to `"0.4"` should learn that the document has moved on. Clients matching on that value exactly will stop matching; per §7a.2 they were already forbidden from matching a patch component, and a client that needs to accept both should compare the minor version rather than the literal string.
+
 == Other notable edits
 
 * *Result set:* `system_id` added to the selectable ENDPOINT attribute set, so a row can carry the openEHR-native routing key (xref:result-set.adoc[§9]).
