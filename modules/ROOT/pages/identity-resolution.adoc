@@ -62,16 +62,37 @@ Beyond `EHR_STATUS.subject.external_ref.id.value`, an identifier can be carried 
 | `PARTY_RELATED` (a `PARTY_IDENTIFIED` subtype used for subjects of care other than the patient)
 | Same `identifiers` list, applied to relatives - so a predicate on it can leak a *third party's* identifier.
 
+| An `ENTRY`-level `subject` - `ENTRY.subject` is a `PARTY_PROXY`, and `PARTY_IDENTIFIED` / `PARTY_RELATED` are its subtypes
+| The one carrier in this table that identifies *the patient* rather than a clinician or third party. A gateway MUST therefore accept it as resolution input alongside `external_ref` (<<party-identified-resolution-input,§5.4.3>>). A path such as `+c/content[openEHR-EHR-OBSERVATION...]/subject/identifiers/id+` is a `WHERE` term against a directly identifying value exactly as `subject/external_ref` is, and is in scope of §5.4.1 in the same way.
+
 | AQL `SELECT` paths, `ORDER BY` paths and query parameters
 | An identifier in a projection or a parameter binding is still an identifier on the wire.
 
 |===
 
+The distinction that makes this table necessary: `EHR_STATUS.subject` is a `PARTY_SELF` whose `external_ref` is an `OBJECT_REF` - *a pointer* (§5.1) - whereas `PARTY_IDENTIFIED.identifiers` is a list of `DV_IDENTIFIER`, *a value store*. Scrubbing the `external_ref` predicate alone therefore does not discharge §5.4.1: the same directly identifying value can be carried, as a literal, on any of the paths above.
+
 === 5.4.3 Handling (normative)
 
 * [[strip-before-fanout]]The gateway MUST *remove or replace* such identifiers before dispatch. Concretely: a `WHERE` predicate on a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` path that the gateway used as *resolution input* MUST be consumed by resolution and stripped from the node AQL exactly as the `external_ref` predicate is (xref:aql-facade.adoc[§7.1]); a predicate on such a path that the gateway did *not* resolve on, and which carries a directly identifying value, MUST cause the query to be rejected (`400`) rather than forwarded. _(xref:requirements.adoc#n33[N33].)_
-* A gateway MAY accept the identifier in a `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate as *alternative resolution input* to `external_ref` - the `issuer`/`type` of the `DV_IDENTIFIER` supplies the issuing namespace that §5.2 requires. Whether or not it does, the outbound rule of §5.4.1 is unchanged.
+* [[party-identified-resolution-input]]*A gateway MUST accept the patient identifier in either carrier.* Both `EHR_STATUS.subject.external_ref` and an `ENTRY`-level `subject` `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate are valid resolution input, and a gateway MUST resolve on whichever the client used. The `issuer`/`type` of the `DV_IDENTIFIER` supplies the issuing namespace that §5.2 requires; for `external_ref`, the `namespace` of the `PARTY_REF` does. Whichever carrier was used, the outbound rule of §5.4.1 is unchanged: the value is consumed in resolution and MUST NOT survive into dispatch.
++
+This is deliberately *not* optional. A client writes AQL against the openEHR RM, not against a gateway's configuration, and both carriers are ordinary ways to identify the subject of a record. Making acceptance a deployment choice would mean the same conformant query resolves against one federation and is rejected `400` by another - which is precisely the kind of variation xref:requirements.adoc#n1[N1] exists to prevent, and it would leave a client unable to write portable AQL without first interrogating the gateway.
++
+Only a predicate that identifies *the patient* is resolution input, which in practice means `external_ref` or an `ENTRY`-level `subject` (§5.4.2). The other carriers in that table - `COMPOSITION.composer`, `EVENT_CONTEXT.health_care_facility`, `PARTICIPATION.performer`, `ATTESTATION.committer` - normally identify a *clinician or facility*, and a gateway MUST NOT resolve the patient from one of them.
+
+[IMPORTANT]
+.A clinician or facility predicate is not a §5.4.1 violation
+====
+§5.4.1 forbids a directly identifying identifier *of the patient* (§5.1). A predicate such as `+WHERE c/composer/identifiers/id = <a clinician id>+` identifies no patient, is ordinary clinical query material - "compositions composed by this author" - and a gateway MUST NOT reject or strip it on §5.4.1 grounds. The carriers are listed in §5.4.2 because they *can* be used to smuggle the patient's identifier, not because a predicate over them is inherently a leak.
+
+What §5.4.1 reaches is the *value*, not the path: a directly identifying identifier of the patient is forbidden wherever it sits, including on one of these paths. The test is therefore whether the literal is the patient identifier the gateway resolved on, not which path carries it. A gateway that rejects every predicate over these paths is over-strict, and will refuse valid queries.
+
+`PARTY_RELATED` is the case in between: an identifier of a relative is a directly identifying identifier of *a person*, so a predicate over it raises a third-party privacy question that this specification does not otherwise address (§5.4.2). It is not, however, a patient identifier, and §5.4.1 does not by itself require its rejection.
+====
 * The gateway SHOULD log a strip or a rejection as a security-relevant event; it MUST NOT log the identifier value itself.
+
+Because both carriers are mandatory, there is nothing here for a gateway to declare and nothing for a client to discover: a client MAY assume either form resolves at any conformant gateway, and the accepted-input set is not part of the `+OPTIONS {base}/+` self-description (xref:rest-facade.adoc#options-root[§7a.2]). What the gateway *dispatches* is fixed unconditionally by §5.4.1 and xref:requirements.adoc#n33[N33]: whichever carrier the client used, the node receives the `ehr_id` and no directly identifying value.
 
 [#node-obligation]
 == 5.5 What the federation asks of a node (and what it does not)

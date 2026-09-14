@@ -49,8 +49,8 @@ A consequence for scoring: a conformance point marked `Node` or `Operator` in xr
 
 | [[track-2]]2
 | *subject → ehrId resolution*
-| The gateway resolves `subject` to per-node `ehr_id` and dispatches AQL keyed on `ehr_id`; *assert nodes never receive `subject`* (inspect node-side AQL).
-| xref:requirements.adoc#n3[N3], xref:requirements.adoc#n5[N5], xref:requirements.adoc#n7[N7]
+| The gateway resolves `subject` to per-node `ehr_id` and dispatches AQL keyed on `ehr_id`; *assert nodes never receive `subject`* (inspect node-side AQL). Run the same query in *both* carriers - `EHR_STATUS.subject.external_ref` and an `ENTRY`-level `subject` `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate: both MUST resolve and return the same rows (xref:conformance.adoc#cp-38[CP-38]), since neither is optional.
+| xref:requirements.adoc#n3[N3], xref:requirements.adoc#n5[N5], xref:requirements.adoc#n7[N7], xref:requirements.adoc#n33[N33]
 
 | [[track-3]]3
 | *Directed / endpoint pin*

@@ -24,6 +24,12 @@ Every normative requirement should be named by at least one conformance point, o
 | xref:requirements.adoc#n2[N2], xref:requirements.adoc#n5[N5]
 | xref:testing.adoc#track-1[1], xref:testing.adoc#track-2[2]
 
+| [[cp-38]]*CP-38*
+| Gateway
+| *Both patient-identifier carriers resolve.* The same patient query, expressed once via `EHR_STATUS.subject.external_ref` and once via an `ENTRY`-level `subject` `PARTY_IDENTIFIED`/`DV_IDENTIFIER` predicate, resolves at the same gateway and returns the same rows; neither form is rejected, and the accepted set is not a deployment declaration. A predicate over `COMPOSITION.composer`, `EVENT_CONTEXT.health_care_facility`, `PARTICIPATION.performer` or `ATTESTATION.committer` carrying a *clinician or facility* identifier is *not* rejected on path grounds. (Outbound hygiene for both is scored by <<cp-26,CP-26>>.)
+| xref:requirements.adoc#n33[N33]
+| xref:testing.adoc#track-2[2], xref:testing.adoc#track-10[10]
+
 | [[cp-3]]*CP-3*
 | Gateway
 | `subject` is resolved to a per-node `ehr_id` via the cross-reference service (proposed: PIXm `$ihe-pix`), *outside AQL*.

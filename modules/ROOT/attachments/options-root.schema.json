@@ -59,6 +59,7 @@
           }
         },
 
+
         "dedup": {
           "description": "§10, N15. The deduplication policy. Default MUST be 'none' (N15); a gateway offering version-identity dedup lists it in modes and names the request header that selects it.",
           "type": "object",
