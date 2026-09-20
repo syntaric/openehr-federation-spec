@@ -152,7 +152,7 @@ Every normative requirement should be named by at least one conformance point, o
 
 | [[cp-23]]*CP-23*
 | Gateway
-| `+OPTIONS {base}/+` returns the supported/unsupported ITS-REST areas, the accepted targeting mechanisms, dedup mode, timeout policy, *and the member endpoints behind the gateway* - without requiring a patient identifier.
+| `+OPTIONS {base}/+` returns the supported/unsupported ITS-REST areas, dedup mode, timeout policy, *and the member endpoints behind the gateway* - without requiring a patient identifier. It does *not* declare the accepted targeting mechanisms: both are mandatory (N35), so there is nothing to declare.
 | xref:requirements.adoc#n30[N30]
 | xref:testing.adoc#track-9[9]
 

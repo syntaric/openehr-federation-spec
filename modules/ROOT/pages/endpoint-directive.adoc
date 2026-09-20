@@ -54,7 +54,7 @@ Content-Type: application/json
 +
 The equivalent organization-level selector is the `openEHR-federation-organisation` header, expanded through the registry exactly as in §8.1.
 * The header form applies to *any* federated request, not only AQL - including the single-node routing of xref:rest-facade.adoc[§7a] and the explicit write target required by xref:follow-up-routing.adoc[§12.4]. The AQL directive, by construction, applies only to AQL. This is a second reason the header cannot simply be dropped in favour of the directive.
-* A gateway MUST declare which mechanisms it accepts in its `+OPTIONS {base}/+` response (xref:rest-facade.adoc#options-root[§7a.2]).
+* Because support for both is *mandatory*, a gateway does *not* declare which mechanisms it accepts: the only conformant answer is "both", so there is nothing for a client to discover (xref:rest-facade.adoc#targeting-not-declared[§7a.2]).
 
 === 8.4.1 Precedence and conflict
 

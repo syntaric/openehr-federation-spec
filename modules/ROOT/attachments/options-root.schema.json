@@ -48,14 +48,12 @@
         },
 
         "aql": {
-          "description": "§8, N35. Which AQL-level targeting mechanisms the gateway accepts. Targeting is carried in the AQL directive or the openEHR-federation-endpoint header, never as a query parameter (§8).",
+          "description": "§8. AQL-level federation behaviour. The accepted targeting mechanisms are deliberately absent: both the in-AQL directive and the openEHR-federation-endpoint header are mandatory at every conformant gateway (N35), so there is nothing to declare (§7a.2).",
           "type": "object",
           "additionalProperties": true,
-          "required": ["fan_out", "endpoint_directive", "endpoint_header"],
+          "required": ["fan_out"],
           "properties": {
-            "fan_out": { "type": "boolean" },
-            "endpoint_directive": { "type": "boolean" },
-            "endpoint_header": { "type": "boolean" }
+            "fan_out": { "type": "boolean" }
           }
         },
 
