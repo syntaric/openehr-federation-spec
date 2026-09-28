@@ -80,7 +80,7 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-11]]*CP-11*
 | Gateway
-| Every in-scope node appears in `meta.federation.endpoints[]` with a status from the set of xref:partial-results.adoc#endpoint-status[§11.1]; unresponsive nodes contribute no rows. Registry members localization did not name appear as `not-localized` - reported, but not in scope.
+| Every in-scope node appears in `meta.federation.endpoints[]` with a status from the set of xref:partial-results.adoc#endpoint-status[§11.1]; unresponsive nodes contribute no rows. A node that answered with an HTTP error appears as `node-error` carrying that error, never as `offline` or `active`. Registry members localization did not name appear as `not-localized`, and members a directive did not name as `excluded` - reported, but not in scope.
 | xref:requirements.adoc#n16[N16]
 | xref:testing.adoc#track-4[4]
 
@@ -194,7 +194,7 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-30]]*CP-30*
 | Gateway
-| *All-or-nothing by default:* with one node down and nothing requested, the query fails, with `504` for a timeout or unreachable node and `424` for a node that returned an error, and the failing response still carries `meta.federation.endpoints[]` naming the failed node with its status and error, plus `meta.federation.complete = false`. With `openEHR-federation-completeness: partial` requested against a gateway that offers it, the same scenario returns `200` with the reachable nodes' rows and `complete = false`. Against a gateway that does not offer it, the request is rejected, not silently served all-or-nothing. The carve-outs hold: a query where every in-scope node is `not-resolved` returns `200` with empty rows, and one where a node is `consent-denied` returns `200` with the rest, both with `complete = false` and neither a `424`. An undirected query whose localizer named a subset still returns `meta.federation.complete = true` when every node it named answered, because `not-localized` members do not clear the flag.
+| *All-or-nothing by default:* with one node down and nothing requested, the query fails, with `504` for a timeout or unreachable node and `424` for a node that returned an error (`504` where both occur), and the failing response still carries `meta.federation.endpoints[]` naming the failed node with its status (`time-out`, `offline` or `node-error`) and error, plus `meta.federation.complete = false`. With `openEHR-federation-completeness: partial` requested against a gateway that offers it, the same scenario returns `200` with the reachable nodes' rows and `complete = false`. Against a gateway that does not offer it, the request is rejected, not silently served all-or-nothing. The carve-outs hold: a query where every in-scope node is `not-resolved` returns `200` with empty rows, and one where a node is `consent-denied` returns `200` with the rest, both with `complete = false` and neither a `424`. An undirected query whose localizer named a subset still returns `meta.federation.complete = true` when every node it named answered, because `not-localized` members do not clear the flag.
 | xref:requirements.adoc#n37[N37]
 | xref:testing.adoc#track-4[4]
 

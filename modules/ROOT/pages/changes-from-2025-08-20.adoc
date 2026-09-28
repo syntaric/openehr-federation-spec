@@ -240,6 +240,30 @@ A fifth site sits in another repository. The reference implementation (https://g
 
 *What is left out, and why.* No specific authentication profile was hoisted into the normative body, because FAPI 2.0 and RAR are §B.4a's answers to two of §13.4's questions and other programmes may answer them differently. The `_`-prefix rule was not relaxed to carry the grouping: prefixing is openEHR's namespace and S1 does not borrow it.
 
+=== Corrections found while aligning the reference implementation (2026-09-28)
+
+Implementing S2 in `syntaric/openehr-federation-ref` exposed three gaps in the amended text. All three are in the 0.9.x line, under the same no-bump hazard as the SEC amendments above.
+
+[cols="1,4,2,3"]
+|===
+| # | Change | Where in the spec | Rationale
+
+| R1
+| *A `node-error` status is added to the §11.1 vocabulary.* It names the node that was reached and answered with a failure, and is the status behind S2's `424`. `error` and `latency_ms` are required on it, as for `offline` and `time-out`. Where one fan-out has both an unanswered node and an erroring one, `504` takes precedence over `424`. *Wire change:* the schema enum grows from seven values to eight.
+| xref:partial-results.adoc#endpoint-status[§11.1], xref:partial-results.adoc#http-status-mapping[§11.2], xref:partial-results.adoc#all-or-nothing[§11.4], xref:result-set.adoc#endpoint-meta[§9.5], xref:requirements.adoc#n16[N16], xref:requirements.adoc#n37[N37], xref:requirements.adoc#n40[N40], xref:conformance.adoc#cp-11[CP-11], xref:conformance.adoc#cp-30[CP-30], `federated-result-set.schema.json`
+| S2 split the failure into `504` and `424` but left the vocabulary at seven values with no status for "answered with an error", so a gateway had to report the `424` case as `offline` (which it was not) or `active` (which would set `complete: true`), and a client could not tell the two recoveries apart from the envelope, the field the spec calls the normative carrier.
+
+| R2
+| *Reporting out-of-scope members is now a SHOULD.* §11.1 required every in-scope node to appear and defined `excluded` and `not-localized` as out of scope, so nothing actually required them to appear; the §9.4 example showed one and §8 said they "are reported", with no obligation level.
+| xref:partial-results.adoc#endpoint-status[§11.1], xref:endpoint-directive.adoc[§8], xref:requirements.adoc#n16[N16], xref:conformance.adoc#cp-11[CP-11]
+| A gateway that dropped directive-excluded members from the list was conformant by the letter and contradicted the example. §14.1's fail-closed MUST for `not-localized` is unchanged.
+
+| R3
+| *§10 names the dedup members.* `mode`, `suppressed_rows` and `suppressed_endpoints[]` were defined only in the schema; the prose said "record the suppressed endpoints" without saying where.
+| xref:deduplication.adoc[§10.2], xref:deduplication.adoc#suppressed-visible[§10.3]
+| Editorial; no wire change.
+|===
+
 == Other notable edits
 
 * *Result set:* `system_id` added to the selectable ENDPOINT attribute set, so a row can carry the openEHR-native routing key (xref:result-set.adoc[§9]).

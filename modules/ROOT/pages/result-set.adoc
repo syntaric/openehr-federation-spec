@@ -124,7 +124,7 @@ Positional rows make the `columns[]` provenance rule of <<columns-provenance>> m
 
 Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`), which xref:follow-up-routing.adoc[§12] routes on.
 
-`node_3` shows a reported-but-not-queried member. This query was directed at `node_1` and `node_2`, so the directive excluded it (xref:partial-results.adoc#endpoint-status[§11.1]). Had the query been undirected and localization simply not named it, its status would be `not-localized` instead. Neither clears `meta.federation.complete`, which is `true` here because every node that was in scope answered.
+`node_3` shows a reported-but-not-queried member. This query was directed at `node_1` and `node_2`, so the directive excluded it, and the gateway reports it as §11.1 says it SHOULD (xref:partial-results.adoc#endpoint-status[§11.1]). Had the query been undirected and localization simply not named it, its status would be `not-localized` instead. Neither clears `meta.federation.complete`, which is `true` here because every node that was in scope answered.
 
 Note also that the four federation members sit inside a single `federation` object and not directly on `meta` (<<federation-meta,§9.1>>). A gateway emitting `meta.complete` is not conformant.
 
@@ -158,14 +158,14 @@ Note also that the four federation members sit inside a single `federation` obje
 | The managing Organization (xref:requirements.adoc#n20[N20]).
 
 | `error`
-| MUST, when `status` is an error
-| The node-reported or gateway-reported error (xref:partial-results.adoc#http-status-mapping[§11.2]).
+| MUST, when `status` is `offline`, `time-out`, `node-error` or `not-resolved`
+| The node-reported or gateway-reported error (xref:partial-results.adoc#http-status-mapping[§11.2]). For `node-error` it carries the node's own failure, at minimum its HTTP status. Not required for `consent-denied`, which a Step-1 pre-filter can set with no node error to carry.
 
 | [[meta-latency]]`latency_ms`
 | MUST, when a query was dispatched to the endpoint
 | Wall-clock time the gateway observed for its request to this endpoint, in milliseconds. For a `time-out` endpoint this is the elapsed time at abandonment (xref:partial-results.adoc#timeouts[§11.5]). The value is the gateway's own measurement; a node's self-report is not used.
 
-The obligation follows dispatch, not scope. It is required for `active`, `offline` and `time-out`, the three statuses that describe an attempted request. It is not required for the statuses settled before any request exists to time: `excluded` and `not-localized`, where the node was never in scope (xref:partial-results.adoc#in-scope[§11.1]), and `not-resolved` or a pre-filtered `consent-denied`, both settled during Step-1 resolution (xref:identity-resolution.adoc[§5], xref:security.adoc[§13.2.1]). A gateway MUST omit the field in those cases; a `0` would read as "answered instantly". _(xref:requirements.adoc#n40[N40].)_
+The obligation follows dispatch, not scope. It is required for `active`, `offline`, `time-out` and `node-error`, the four statuses that describe an attempted request. It is not required for the statuses settled before any request exists to time: `excluded` and `not-localized`, where the node was never in scope (xref:partial-results.adoc#in-scope[§11.1]), and `not-resolved` or a pre-filtered `consent-denied`, both settled during Step-1 resolution (xref:identity-resolution.adoc[§5], xref:security.adoc[§13.2.1]). A gateway MUST omit the field in those cases; a `0` would read as "answered instantly". _(xref:requirements.adoc#n40[N40].)_
 
 | [[meta-version]]`product` / `version`
 | SHOULD

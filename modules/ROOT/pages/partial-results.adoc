@@ -3,7 +3,7 @@
 [#endpoint-status]
 == 11.1 Primary carrier: `meta.federation.endpoints[]`
 
-Every node that was in scope MUST appear in `meta.federation.endpoints[]` with a status (and an error where relevant), whether or not it contributed rows (xref:requirements.adoc#n16[N16]). Unresponsive nodes MUST NOT contribute rows. The status set is:
+Every node that was in scope MUST appear in `meta.federation.endpoints[]` with a status (and an error where relevant), whether or not it contributed rows (xref:requirements.adoc#n16[N16]). A registry member that was not in scope SHOULD appear as well, as `excluded` or `not-localized`, so that a client sees the whole federation and not a list silently truncated to the nodes that were asked; a gateway that omits them MUST NOT emit them under any other status. Unresponsive nodes MUST NOT contribute rows. The status set is:
 
 [cols="1,3"]
 |===
@@ -17,6 +17,9 @@ Every node that was in scope MUST appear in `meta.federation.endpoints[]` with a
 
 | `time-out`
 | Reachable but did not respond within the gateway timeout.
+
+| `node-error`
+| Reached and answered, but with a failure instead of a result set: an HTTP error status, a malformed body, or a response the gateway could not use. The node's own error is carried in `error`. This is neither `offline`, because the node was reached, nor `active`, because nothing usable came back.
 
 | `not-resolved`
 | The cross-reference service returned no local `ehr_id` for the patient at this node (xref:identity-resolution.adoc[§5], xref:requirements.adoc#n6[N6]).
@@ -32,6 +35,8 @@ Every node that was in scope MUST appear in `meta.federation.endpoints[]` with a
 |===
 
 The difference between the last two matters for audit. `excluded` records that something ruled the node out; `not-localized` records that nothing ruled it in. Neither means the node was asked and declined, which is `consent-denied`.
+
+The three statuses that describe an attempted request are likewise distinct on purpose. `offline` means no connection; `time-out` means a connection but no answer in time; `node-error` means an answer that was a failure. They map to different HTTP statuses under the default strategy (<<all-or-nothing,§11.4>>) and call for different recoveries, so a gateway MUST NOT fold a node error into `offline` or report it as `active` with an `error` attached.
 
 [[in-scope]]*What "in scope" means.* A node is *in scope* for a query if node selection put it there, whether localization named it or a directive did. A node reported `excluded` or `not-localized` was never in scope: one because a decision removed it before selection completed, the other because nothing selected it. Both are reported, so a client sees the whole federation picture and not a silently truncated list, but neither clears `meta.federation.complete` (<<completeness-flag,§11.4>>, xref:requirements.adoc#n37[N37]), because a query is not incomplete for failing to ask a node it never intended to ask. Every other status describes a node that was in scope and did not reach `active`, and so does clear the flag.
 
@@ -49,7 +54,7 @@ The difference between the last two matters for audit. `excluded` records that s
 | yes
 | *Fails the query* under the default strategy, with `504` (<<all-or-nothing,§11.4>>). The node was asked and did not answer.
 
-| a node-reported error
+| `node-error`
 | yes
 | *Fails the query* under the default strategy, with `424` (<<all-or-nothing,§11.4>>). The node was asked and answered with a failure.
 
@@ -89,7 +94,7 @@ Two in-scope statuses are absent from this table and do not fail the request in 
 
 | Node returned an *error*, under the *default all-or-nothing strategy* (xref:partial-results.adoc#all-or-nothing[§11.4])
 | *424*
-| intermediary (gateway); the node's own error is carried per endpoint, and the envelope is still present (xref:partial-results.adoc#failure-carries-envelope[§11.4])
+| intermediary (gateway); the node is reported `node-error` with its own error carried per endpoint, and the envelope is still present (xref:partial-results.adoc#failure-carries-envelope[§11.4])
 
 | Node *connection timed out* (no response), where *best-effort was opted into* (`openEHR-federation-completeness: partial`, xref:partial-results.adoc#best-effort[§11.4])
 | *200*
@@ -135,7 +140,7 @@ If no node resolves the patient, so every endpoint is `not-resolved`, the correc
 
 *The carve-out, normatively:* a node reported `not-resolved` MUST NOT, on its own, fail the query. The cross-reference service answered "no local `ehr_id` here", and an answer is not an outage. A query in which every in-scope node is `not-resolved` MUST return `200` with empty `rows`, exactly as this section has always required, and a query in which some nodes are `not-resolved` and the rest reached `active` MUST return `200` with those rows. In both cases `meta.federation.complete` is `false`, because the gateway did not get an answer about the patient from every node it asked, and a client that cares can see which.
 
-This agrees with xref:requirements.adoc#n6[N6], which has always said `not-resolved` MUST NOT fail the whole query, and the new default leaves it alone. The statuses that do fail the query under <<all-or-nothing,§11.4>> describe a node that was asked and did not answer, or answered with an error: `offline`, `time-out`, and a node-reported error. `consent-denied` is likewise not a failure, because a node refusing on consent grounds has answered (see below).
+This agrees with xref:requirements.adoc#n6[N6], which has always said `not-resolved` MUST NOT fail the whole query, and the new default leaves it alone. The statuses that do fail the query under <<all-or-nothing,§11.4>> describe a node that was asked and did not answer, or answered with an error: `offline`, `time-out` and `node-error`. `consent-denied` is likewise not a failure, because a node refusing on consent grounds has answered (see below).
 ====
 
 A `consent-denied` node follows the same logic for the same reason. Consent is the node's gate (xref:requirements.adoc#n27[N27]), a refusal is a decision, not an outage, and a query MUST NOT fail because one node declined to release data it holds. Like `not-resolved` it clears `meta.federation.complete`, so the client is told coverage was incomplete, but it does not produce a `424`. A federation in which one patient's opt-out at one node failed every query about them would be unusable, and would leak that opt-out through the error.
@@ -144,7 +149,7 @@ A `consent-denied` node follows the same logic for the same reason. Consent is t
 
 A fan-out has to decide what to do when some nodes answer. This specification fixes that decision, because a client cannot interpret a result set without knowing which rule produced it.
 
-* [[all-or-nothing]]*The default strategy is all-or-nothing:* if an in-scope node (xref:partial-results.adoc#in-scope[§11.1]) was asked and did not answer - status `offline` or `time-out` - or answered with an error, the gateway MUST fail the query instead of returning the rows it did obtain. The status is `504` where the cause is a timeout or unreachability and `424 Failed Dependency` where a node returned an error. The two in-scope statuses that represent an answer - `not-resolved` and `consent-denied` - do not fail the query; see the carve-out in <<not-resolved-carve-out,§11.3>> and the table in xref:partial-results.adoc#in-scope[§11.1]. _(xref:requirements.adoc#n37[N37].)_
+* [[all-or-nothing]]*The default strategy is all-or-nothing:* if an in-scope node (xref:partial-results.adoc#in-scope[§11.1]) was asked and did not answer - status `offline` or `time-out` - or answered with an error - status `node-error` - the gateway MUST fail the query instead of returning the rows it did obtain. The status is `504` where the cause is a timeout or unreachability and `424 Failed Dependency` where a node returned an error. Where one fan-out has both kinds, `504` takes precedence, because an unanswered node is an unknown and a retry or a `partial` request is the client's cheapest recovery, whereas a node error needs no retry to be read. The two in-scope statuses that represent an answer - `not-resolved` and `consent-denied` - do not fail the query; see the carve-out in <<not-resolved-carve-out,§11.3>> and the table in xref:partial-results.adoc#in-scope[§11.1]. _(xref:requirements.adoc#n37[N37].)_
 +
 --
 *Why this is the default.* A partial clinical answer that looks exactly like a complete one is a safety hazard, and the hazard is asymmetric. A clinician who does not know a node was missing may reasonably conclude the data does not exist, that there is no allergy, no prior admission, no anticoagulant, and act on that absence. The flag of <<completeness-flag>> makes incompleteness detectable but not detected: it relies on every client, in every rendering path, checking a boolean nothing forces it to read. Failing closed removes the dependence on that discipline: a client that asked for the federation's answer and cannot be given it is told so.
@@ -162,7 +167,7 @@ Compared with earlier releases only the default changed: a client that sends no 
 --
 * The `openEHR-federation-completeness` header carries `all`, the default and now implicit, or `partial`. A gateway MUST accept `all` explicitly even though it is the default, so a client can state its requirement without relying on the default. A gateway that does not offer best-effort MUST reject `partial` instead of silently ignoring it.
 * Both strategies apply to reads. Neither applies to writes: a write is routed to exactly one node (xref:follow-up-routing.adoc[§12.4]) and either succeeds or fails there. There is no partial write in v1.
-* A node that returns an error, as opposed to not answering, is treated the same way for completeness purposes. It contributes no rows, appears with a status and the node's error, and clears `meta.federation.complete`, failing the query with `424` under the default or being reported under `partial`.
+* A node that returns an error, as opposed to not answering, is treated the same way for completeness purposes. It contributes no rows, appears as `node-error` with the node's error, and clears `meta.federation.complete`, failing the query with `424` under the default or being reported under `partial`.
 
 [#timeouts]
 == 11.5 Timeouts (normative)
@@ -173,7 +178,7 @@ Timeouts are in scope. Leaving them to implementers would make the completeness 
 * [[timeout-declared]]The values in force MUST be discoverable: `+OPTIONS {base}/+` reports `timeout.per_node_ms` and `timeout.overall_ms` (xref:rest-facade.adoc#options-root[§7a.2]), and every response MUST report, per endpoint, the elapsed time the gateway observed (xref:result-set.adoc#endpoint-meta[§9.5]). _(xref:requirements.adoc#n38[N38].)_
 * [[client-deadline]]A client MAY request a shorter budget with the standard `Prefer: wait=<seconds>` header. The gateway MUST honour a shorter client budget and MUST NOT extend beyond its own overall budget on a client's request, since a client cannot lengthen the gateway's deadline. The effective budget MUST be reported in `meta.federation.timeout`.
 * The gateway MUST NOT let a node's timeout cascade: abandoning a node MUST NOT abort in-flight requests to other nodes.
-* *What a client can rely on.* A conformant gateway answers within its declared overall budget, plus combining time. A `200` means every node it asked that holds the patient answered, unless the client opted into best-effort, in which case the answer may be partial and `meta.federation.complete` says so. `meta.federation.complete` and `meta.federation.endpoints[]` identify which nodes are missing and why, including on a `504`/`424` (xref:partial-results.adoc#failure-carries-envelope[§11.4]). A `time-out` node means *unknown*, never *no data*, and a client MUST NOT read a `time-out` endpoint as an empty result; the per-endpoint status set exists so that these two cases stay distinguishable.
+* *What a client can rely on.* A conformant gateway answers within its declared overall budget, plus combining time. A `200` means every node it asked that holds the patient answered, unless the client opted into best-effort, in which case the answer may be partial and `meta.federation.complete` says so. `meta.federation.complete` and `meta.federation.endpoints[]` identify which nodes are missing and why, including on a `504`/`424` (xref:partial-results.adoc#failure-carries-envelope[§11.4]). A `time-out` or `node-error` node means *unknown*, never *no data*, and a client MUST NOT read such an endpoint as an empty result; the per-endpoint status set exists so that these cases stay distinguishable.
 +
 A client MUST NOT assume that a `200` with `complete: false` cannot happen. It happens whenever `not-resolved` or `consent-denied` cleared the flag without failing the query (<<not-resolved-carve-out,§11.3>>). In that case the gateway is reporting incomplete coverage as §11.3 requires, and has not violated the default.
 * A node that answers after being abandoned MUST be ignored; the gateway MUST NOT emit rows outside the response it already returned. (An async request, §11.7, is the supported way to wait longer.)

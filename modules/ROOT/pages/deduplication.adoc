@@ -11,7 +11,7 @@ The Tier SHOULD offer an opt-in dedup mode keyed on the openEHR `object_id` (the
 Rules for this mode:
 
 * Group rows by `object_id`; within a group, keep the originating copy and record the suppressed endpoints in `meta.federation.dedup` (xref:result-set.adoc#federation-meta[§9.1]). The retained-copy rule MUST be deterministic - prefer the copy whose `creating_system_id` equals the `object_id`'s originating system.
-* The mode actually applied MUST be recorded in `meta.federation.dedup`, so a client can tell a pass-through result from a de-duplicated one without comparing row counts it cannot know.
+* The mode actually applied MUST be recorded in `meta.federation.dedup.mode`, so a client can tell a pass-through result from a de-duplicated one without comparing row counts it cannot know. When rows were suppressed, `suppressed_rows` carries how many and `suppressed_endpoints[]` the `endpoint_id`s whose copies were dropped, as `federated-result-set.schema.json` defines them (§10.3).
 * The mode SHOULD be scoped to latest-version queries; a version-history query MUST keep distinct rows (different `version_tree_id`s are genuinely different versions).
 
 [#update-routing-hazard]
@@ -27,7 +27,7 @@ De-duplication and follow-up writes interact badly, and the interaction stays si
 
 * [[dedup-write-target]]After dedup, the surviving row MUST still identify the originating endpoint, and a write derived from that row MUST be routed on `creating_system_id`, not on the endpoint the surviving row happened to be read from. If the two disagree, `creating_system_id` wins. _(xref:requirements.adoc#n36[N36].)_
 * [[copy-write-reject]]A gateway MUST NOT route a versioned write to a node that merely holds a copy. If the only reachable node for the target `object_id` is one whose `system_id` differs from the version's `creating_system_id`, the gateway MUST reject the write with `409 Conflict` and an error identifying the controlling system. It MUST NOT fall back to writing at the holder, because being unable to reach the owner is no licence to fork the object. _(xref:requirements.adoc#n36[N36].)_
-* [[suppressed-visible]]Suppression MUST remain visible. When dedup drops rows, the gateway MUST record the suppressed endpoints in `meta.federation.dedup` (§10.2), so a client can tell that other copies exist and that a write it issues will not update them.
+* [[suppressed-visible]]Suppression MUST remain visible. When dedup drops rows, the gateway MUST record the suppressed endpoints in `meta.federation.dedup.suppressed_endpoints[]` and the count in `suppressed_rows` (§10.2), so a client can tell that other copies exist and that a write it issues will not update them.
 * *Copies do not converge.* This specification does not define propagation of an update back to importing nodes. After a successful write at the owner, CDR-B still holds the old version and will do so until it re-imports. A gateway MUST NOT present the write as having updated the federation as a whole. Reconciling imported copies is out of scope for v1 (xref:future.adoc[§18]).
 
 §10.2 requires the retained-copy rule to be deterministic and to prefer the originating copy because a dedup mode that keeps an arbitrary copy would turn the first rule into a coin flip.
