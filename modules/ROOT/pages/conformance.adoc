@@ -98,7 +98,7 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-14]]*CP-14*
 | Gateway
-| Follow-up reads route to the owning CDR by `creating_system_id` (then `endpoint_id`, then ask-all); uids are never rewritten.
+| Follow-up reads route to the owning CDR by `creating_system_id` (then `endpoint_id`, then ask-all where the gateway offers it); uids are never rewritten. A gateway that declares `follow_up.ask_all: false` never broadcasts a follow-up and rejects an unroutable one with `400`.
 | xref:requirements.adoc#n22[N22]
 | xref:testing.adoc#track-6[6]
 
@@ -212,7 +212,7 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-33]]*CP-33*
 | Gateway
-| `ehr_id` routing and integrity: a path `ehr_id` routes by explicit target / binding / index, a write is rejected `400` and never ask-all-probed, and an `ehr_id` claimed by two nodes yields `409` plus an integrity incident - never a guess.
+| `ehr_id` routing and integrity: a path `ehr_id` routes by explicit target / binding / index (then an ask-all probe for reads, only where the gateway offers it; with `follow_up.ask_all: false` an unresolved read is rejected `400` like a write), a write is rejected `400` and never ask-all-probed, and an `ehr_id` claimed by two nodes yields `409` plus an integrity incident - never a guess.
 | xref:requirements.adoc#n41[N41], xref:requirements.adoc#n42[N42]
 | xref:testing.adoc#track-6[6], xref:testing.adoc#track-11[11]
 

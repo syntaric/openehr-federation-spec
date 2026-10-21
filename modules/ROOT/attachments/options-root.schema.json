@@ -191,6 +191,18 @@
           }
         },
 
+        "follow_up": {
+          "description": "§12.3, N22 and N41. Follow-up routing behaviour. OPTIONAL as a member: absence means the ask-all fallback is offered, which is the behaviour of releases that predate this key.",
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "ask_all": {
+              "description": "§12.3. Whether the gateway offers the ask-all fallback for follow-up routing (version reads, N22, and path ehr_id reads, N41). False means the gateway never broadcasts a follow-up and rejects an unroutable one with 400, requiring an explicit target. Absent or true means it is offered.",
+              "type": "boolean"
+            }
+          }
+        },
+
         "auth": {
           "description": "§13.1. The JWKS location. OPTIONAL as a member: a gateway with none configured omits the key rather than inventing a value.",
           "type": "object",
