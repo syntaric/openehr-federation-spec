@@ -1,10 +1,10 @@
 = 15. Addressing / Endpoint discovery
 
-Addressing turns an organization/node identifier into a reachable PIX Manager + CDR URL. It is a separate concern from the record-locator (xref:localization.adoc[§14]).
+Addressing turns an organization/node identifier into a reachable cross-reference service endpoint + CDR URL. It is a separate concern from the record-locator (xref:localization.adoc[§14]).
 
 == 15.1 Normative
 
-* The Tier MUST be able to turn an organization/node identifier (from localization, xref:localization.adoc[§14], or from a directed `FROM ENDPOINT`, xref:endpoint-directive.adoc[§8]) into the concrete endpoints it needs: the community's PIX Manager (for xref:identity-resolution.adoc[§5] resolution) and the CDR base URL (for fan-out and follow-up). *Proposed binding: IHE mCSD* (Mobile Care Services Discovery) for this addressing/directory function.
+* The Tier MUST be able to turn an organization/node identifier (from localization, xref:localization.adoc[§14], or from a directed `FROM ENDPOINT`, xref:endpoint-directive.adoc[§8]) into the concrete endpoints it needs: the community's cross-reference service endpoint (the identifier cross-reference role of xref:requirements.adoc#n3[N3], for xref:identity-resolution.adoc[§5] resolution) and the CDR base URL (for fan-out and follow-up). *Proposed binding: IHE mCSD* (Mobile Care Services Discovery) for this addressing/directory function.
 * The registry (xref:requirements.adoc#n21[N21]) is the local materialisation of this mapping: Organizations ↔ Endpoints ↔ `system_id`/`creating_system_id` ↔ CDR base URLs.
 
 == 15.2 The `connectionType` reconciliation
