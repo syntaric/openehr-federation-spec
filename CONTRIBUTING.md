@@ -83,13 +83,13 @@ Four sites cannot, and must be bumped by hand together:
 
 | Site | Why it cannot be an attribute |
 | --- | --- |
-| `antora.yml`'s own `version:` | The Antora component version. It carries the **minor** version only (`1.0`) — a patch release replaces its predecessor in place, so there is no version selector and no stale URLs. Bump it only for a minor release. |
+| `antora.yml`'s own `version:` | The Antora component version. It carries the **minor** version only (`1.1`) — a patch release replaces its predecessor in place, so there is no version selector and no stale URLs. Bump it only for a minor release. |
 | `package.json`'s `version` | Outside Antora's attribute scope. |
 | `README.md` | GitHub Markdown; no attribute expansion. |
-| `rest-facade.adoc`'s `"spec_version": "1.0"` | Inside a `[source,json]` block. Substituting there needs `subs="attributes+"`, which makes the example non-copy-pasteable. It is also **deliberately `major.minor`**: the field reports the wire contract a gateway implements, and patch releases do not change it — see §7a.2. Leave it alone for a patch release; bump it for a minor one. `options-root.schema.json` enforces the `major.minor` shape with a `pattern`, so a three-component value fails CI. |
+| `rest-facade.adoc`'s `"spec_version": "1.1"` | Inside a `[source,json]` block. Substituting there needs `subs="attributes+"`, which makes the example non-copy-pasteable. It is also **deliberately `major.minor`**: the field reports the wire contract a gateway implements, and patch releases do not change it — see §7a.2. Leave it alone for a patch release; bump it for a minor one. `options-root.schema.json` enforces the `major.minor` shape with a `pattern`, so a three-component value fails CI. |
 
 The two schemas' `$id` URLs embed the Antora component version
-(`.../federation-aql/1.0/_attachments/...`) and move with `antora.yml`'s `version:`.
+(`.../federation-aql/1.1/_attachments/...`) and move with `antora.yml`'s `version:`.
 
 A further site lives in another repository: the **reference implementation**
 (https://github.com/syntaric/openehr-federation-ref) tracks the spec version in its

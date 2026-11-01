@@ -7,7 +7,7 @@
 [NOTE]
 .Editorial note
 ====
-This specification was approved by the openEHR Specifications Editorial Committee (SEC) at its meeting of 2026-10-12 and published as release 1.0.0. Release 1.0.1 is an erratum to the routing of EHR-scoped version requests: the path `ehr_id` locates the node, and `creating_system_id` is a later routing step and the control test for writes (xref:follow-up-routing.adoc#ehr-id-route-order[§12.5.1]), so a 1.0.0 gateway that routed version reads on `creating_system_id` needs to change. Comments remain welcome and are taken up in a later release.
+This is a draft of release 1.1.0, submitted to the openEHR Specifications Editorial Committee (SEC) for review. Release 1.0.0 was approved by the SEC at its meeting of 2026-10-12. Release 1.0.1 is an erratum to the routing of EHR-scoped version requests: the path `ehr_id` locates the node, and `creating_system_id` is a later routing step and the control test for writes (xref:follow-up-routing.adoc#ehr-id-route-order[§12.5.1]), so a 1.0.0 gateway that routed version reads on `creating_system_id` needs to change. Release 1.1.0 adds per-row provenance: every AQL response attributes each row to its endpoints in `meta.federation.row_endpoints[]` (xref:result-set.adoc#row-endpoints[§9.5.1]), and the `FROM ENDPOINT` directive can be written without a node list to project endpoint attributes as columns while localization still selects the nodes (xref:endpoint-directive.adoc#listless-directive[§8.1]). Comments remain welcome and are taken up in a later release.
 ====
 
 == Referenced documents

@@ -158,7 +158,7 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-24]]*CP-24*
 | Gateway
-| A routed write returns `openEHR-federation-endpoint` (and SHOULD, `openEHR-federation-system-id`) with `Location`/`ETag` passed through unmodified.
+| A routed write returns `openEHR-federation-endpoint` (and SHOULD, `openEHR-federation-system-id`) with `Location`/`ETag` passed through unmodified; a routed read returns both headers.
 | xref:requirements.adoc#n31[N31]
 | xref:testing.adoc#track-9[9]
 
@@ -254,7 +254,19 @@ Every normative requirement should be named by at least one conformance point or
 
 | [[cp-40]]*CP-40*
 | Gateway
-| *Stored-query registry (where offered).* A definition stored at the gateway with `+PUT {base}/v1/definition/query/{name}/{version}+` is invocable by name with `+POST {base}/v1/query/{name}+` and fans out, so the result carries rows from more than one member with a `meta.federation.endpoints[]` covering them, and the response carries the ITS-REST `name` member naming the gateway's query. A second `PUT` to the same `+{name}/{version}+` is refused, not silently applied. Where definition fan-out to nodes is also offered, a run in which one node rejects the definition is reported as a partial success per node, never as overall success. A definition whose AQL carries `FROM ENDPOINT` targeting is refused for fan-out with a reason, while remaining storable and federated-executable. A gateway declaring no registry is scored against xref:conformance.adoc#cp-34[CP-34] instead, and is not marked down here.
+| *Stored-query registry (where offered).* A definition stored at the gateway with `+PUT {base}/v1/definition/query/{name}/{version}+` is invocable by name with `+POST {base}/v1/query/{name}+` and fans out, so the result carries rows from more than one member with a `meta.federation.endpoints[]` covering them, and the response carries the ITS-REST `name` member naming the gateway's query. A second `PUT` to the same `+{name}/{version}+` is refused, not silently applied. Where definition fan-out to nodes is also offered, a run in which one node rejects the definition is reported as a partial success per node, never as overall success. A definition whose AQL carries a `FROM ENDPOINT` directive, with or without a node list, is refused for fan-out with a reason, while remaining storable and federated-executable. A gateway declaring no registry is scored against xref:conformance.adoc#cp-34[CP-34] instead, and is not marked down here.
 | xref:requirements.adoc#n44[N44]
 | xref:testing.adoc#track-9[9]
+
+| [[cp-41]]*CP-41*
+| Gateway
+| *List-less `FROM ENDPOINT`.* A query `FROM ENDPOINT p CONTAINS …` projecting ENDPOINT attributes returns the same rows as its form without the directive, over exactly the localized nodes, each labelled with the attributes of the endpoint that produced it; registry members localization did not name are reported `not-localized`, never `excluded`, and do not clear `meta.federation.complete`. With the `openEHR-federation-endpoint` header present, the header's node set applies and no conflict is raised. `FROM ORGANISATION o CONTAINS …` without a list, and an empty list `[ ]`, are rejected `400`.
+| xref:requirements.adoc#n10[N10], xref:requirements.adoc#n11[N11], xref:requirements.adoc#n35[N35]
+| xref:testing.adoc#track-3[3]
+
+| [[cp-42]]*CP-42*
+| Gateway
+| *Per-row attribution.* Every AQL response carries `meta.federation.row_endpoints[]` with one non-empty array of `endpoint_id` s per row, index-aligned with `rows`, every value present in `meta.federation.endpoints[]`. Alignment holds after `ORDER BY` + `LIMIT`; a row merged by federation-level `DISTINCT` or a decomposed aggregate lists every contributing endpoint; a de-duplicated row names the surviving copy's endpoint; a response with no rows, including a failing `504`/`424`, carries `[]`. The rows are unchanged: a query projecting no ENDPOINT attribute gets no endpoint columns.
+| xref:requirements.adoc#n45[N45], xref:requirements.adoc#n17[N17]
+| xref:testing.adoc#track-1[1]
 |===

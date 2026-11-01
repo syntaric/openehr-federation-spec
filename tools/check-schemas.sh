@@ -83,6 +83,16 @@ for target in "${TARGETS[@]}"; do
                      -s "$SCHEMAS/$schema" -d "$instance" 2>&1); then
             echo "ok    $label — validates against $schema"
             checked=$((checked + 1))
+            # §9.5.1 obligations JSON Schema cannot express: row_endpoints has one
+            # entry per row, and every value is an id listed in endpoints[].
+            if [ "$schema" = "federated-result-set.schema.json" ] &&
+               ! jq -e '(.meta.federation.row_endpoints | length) == (.rows | length)
+                        and ([.meta.federation.endpoints[].id] as $ids
+                             | all(.meta.federation.row_endpoints[][]; . as $v | $ids | index($v) != null))' \
+                    "$instance" >/dev/null; then
+                echo "FAIL  $label — row_endpoints is not aligned with rows, or names an endpoint missing from endpoints[] (§9.5.1)"
+                failed=$((failed + 1))
+            fi
         else
             echo "FAIL  $label — does not validate against $schema"
             printf '%s\n' "$out" | sed 's/^/        /'

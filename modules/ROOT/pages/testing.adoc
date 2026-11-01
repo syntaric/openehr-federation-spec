@@ -44,8 +44,8 @@ The thin profile has a consequence for scoring. A conformance point marked `Node
 
 | [[track-1]]1
 | *Transparency*
-| An unmodified openEHR client queries the gateway with a plain patient AQL and gets a single-CDR-shaped result (no endpoint columns unless selected); `columns[]` is the same for the same query however the nodes responded (xref:conformance.adoc#cp-35[CP-35]).
-| xref:requirements.adoc#n1[N1], xref:requirements.adoc#n2[N2], xref:requirements.adoc#n17[N17], xref:requirements.adoc#n18[N18]
+| An unmodified openEHR client queries the gateway with a plain patient AQL and gets a single-CDR-shaped result (no endpoint columns unless selected); `columns[]` is the same for the same query however the nodes responded (xref:conformance.adoc#cp-35[CP-35]). Every response carries `meta.federation.row_endpoints[]` aligned with `rows`: assert it for a plain fan-out, after `ORDER BY` + `LIMIT`, for a `DISTINCT` row returned by two nodes, for a decomposed `COUNT` where offered, after opt-in dedup, and as `[]` on a failing `504` (xref:conformance.adoc#cp-42[CP-42]).
+| xref:requirements.adoc#n1[N1], xref:requirements.adoc#n2[N2], xref:requirements.adoc#n17[N17], xref:requirements.adoc#n18[N18], xref:requirements.adoc#n45[N45]
 
 | [[track-2]]2
 | *subject → ehrId resolution*
@@ -54,8 +54,8 @@ The thin profile has a consequence for scoring. A conformance point marked `Node
 
 | [[track-3]]3
 | *Directed / endpoint pin*
-| `FROM ENDPOINT [...]` (and `ORGANISATION [...]`) select the node set; `not-resolved` list members are reported, not errored; per-node scope stays the resolved `ehr_id`.
-| xref:requirements.adoc#n10[N10], xref:requirements.adoc#n11[N11], xref:endpoint-directive.adoc[§8]
+| `FROM ENDPOINT [...]` (and `ORGANISATION [...]`) select the node set; `not-resolved` list members are reported, not errored; per-node scope stays the resolved `ehr_id`. List-less `FROM ENDPOINT p`: with ENDPOINT projections the rows equal the undirected result plus the label columns, without projections they equal it exactly; non-localized members are `not-localized`; with the header the header's set applies and no `400` is raised; `FROM ORGANISATION o` without a list and `[ ]` are rejected `400` (xref:conformance.adoc#cp-41[CP-41]).
+| xref:requirements.adoc#n10[N10], xref:requirements.adoc#n11[N11], xref:requirements.adoc#n35[N35], xref:endpoint-directive.adoc[§8]
 
 | [[track-4]]4
 | *Partial results*
@@ -84,7 +84,7 @@ The thin profile has a consequence for scoring. A conformance point marked `Node
 
 | [[track-9]]9
 | *REST surface & self-description*
-| An unmodified openEHR client, configured only with the registry base URL, performs a read and a write through the gateway - no `/rest/openehr` or other prefix assumed; both EHR addressing forms work; `+OPTIONS {base}/+` describes the surface and lists the endpoints behind the gateway; write responses carry the acting-endpoint headers with `Location`/`ETag` untouched; DEMOGRAPHIC behaves as declared; `definition` routes to one node (and, if offered, template broadcast reports per node and never reports a partial failure as success). Where a gateway declares `definition.stored_query_registry`, additionally: a definition `PUT` at the gateway is invocable by name and fans out across members, the response carries the ITS-REST `name` member, a repeat `PUT` to the same `+{name}/{version}+` is refused, an endpoint-targeted definition is refused for fan-out, and a declared definition fan-out reports a one-node rejection as a partial success (xref:conformance.adoc#cp-40[CP-40]).
+| An unmodified openEHR client, configured only with the registry base URL, performs a read and a write through the gateway - no `/rest/openehr` or other prefix assumed; both EHR addressing forms work; `+OPTIONS {base}/+` describes the surface and lists the endpoints behind the gateway; write responses carry the acting-endpoint headers with `Location`/`ETag` untouched; DEMOGRAPHIC behaves as declared; `definition` routes to one node (and, if offered, template broadcast reports per node and never reports a partial failure as success). Where a gateway declares `definition.stored_query_registry`, additionally: a definition `PUT` at the gateway is invocable by name and fans out across members, the response carries the ITS-REST `name` member, a repeat `PUT` to the same `+{name}/{version}+` is refused, an endpoint-targeted definition, with or without a node list, is refused for fan-out, and a declared definition fan-out reports a one-node rejection as a partial success (xref:conformance.adoc#cp-40[CP-40]).
 | xref:requirements.adoc#n28[N28]–N32, xref:requirements.adoc#n43[N43], xref:requirements.adoc#n44[N44]
 
 | [[track-10]]10

@@ -2,7 +2,7 @@
 
 == 10.1 Default: pass-through + provenance
 
-By default the Tier MUST *not* deduplicate (xref:requirements.adoc#n15[N15]). In line with the White Paper, where it is normal for the façade to pass duplicates to the client, and with SQL semantics, duplicate rows come back unless the client filters them with `DISTINCT`. Where data may legitimately appear via multiple endpoints, through sharding or caching, the client SHOULD add ENDPOINT provenance columns (xref:result-set.adoc[§9]) so rows become distinguishable.
+By default the Tier MUST *not* deduplicate (xref:requirements.adoc#n15[N15]). In line with the White Paper, where it is normal for the façade to pass duplicates to the client, and with SQL semantics, duplicate rows come back unless the client filters them with `DISTINCT`. Where data may legitimately appear via multiple endpoints, through sharding or caching, the client SHOULD add ENDPOINT provenance columns (xref:result-set.adoc#endpoint-attributes[§9.3]) so rows become distinguishable; the list-less directive adds them without pinning the node set (xref:endpoint-directive.adoc#listless-directive[§8.1]). Each row's endpoints are also listed in `meta.federation.row_endpoints[]` (xref:result-set.adoc#row-endpoints[§9.5.1]).
 
 == 10.2 Opt-in VERSION-identity dedup (the imported-composition case)
 

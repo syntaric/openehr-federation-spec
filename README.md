@@ -8,13 +8,16 @@ a regional alternative), and each node then receives **standard, non-federated A
 scoped to its resolved `ehr_id`. The gateway is a transparent façade: a client never
 needs federation-specific syntax to run a basic patient query.
 
-> **Status: approved, v1.0.1.** The specification was approved by the openEHR
-> Specifications Editorial Committee (SEC) at its meeting of 2026-10-12. It had
+> **Status: draft for SEC review, v1.1.0.** Release 1.0.0 was approved by the
+> openEHR Specifications Editorial Committee (SEC) at its meeting of 2026-10-12. It had
 > been validated by a working
 > [reference implementation](https://github.com/syntaric/openehr-federation-ref)
 > and amended in the SEC review that preceded approval. Release 1.0.1 is an
 > erratum: EHR-scoped version reads and writes are located by the path `ehr_id`,
 > and `creating_system_id` is a later routing step and the write control test.
+> Release 1.1.0 adds per-row provenance: `meta.federation.row_endpoints[]` on
+> every AQL response, and a list-less `FROM ENDPOINT p` that projects endpoint
+> attributes while localization still selects the nodes.
 > Feedback is still welcome,
 > from typo fixes to fundamental disagreement with the model, and lands in a later
 > release. See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -58,7 +61,7 @@ sources do appear in the output.
 ## Repository layout
 
 ```
-antora.yml                    Antora component descriptor (component: federation-aql, v1.0)
+antora.yml                    Antora component descriptor (component: federation-aql, v1.1)
 antora-playbook.yml           Antora playbook (local build and CI use the same one)
 Makefile                      Local build and preview server (make, make build, make serve)
 modules/ROOT/pages/           The specification, one AsciiDoc page per section - this is

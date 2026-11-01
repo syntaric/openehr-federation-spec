@@ -21,9 +21,9 @@ ITS-REST defines five top-level members of `RESULT_SET` (`meta`, `name`, `q`, `c
 `meta` is an ITS-REST `ResultSetMetadata`. That schema declares `additionalProperties: true`, so it is an open object by design, and carrying additional keys in it is conformant and does not deviate from xref:requirements.adoc#n1[N1]. This specification uses that extension point once, for a single additional member named `federation`, and puts everything it contributes inside it.
 
 [#federation-meta]
-The `federation` object carries four members: `complete` (xref:partial-results.adoc#completeness-flag[§11.4]), `endpoints[]` (<<endpoint-meta,§9.5>>), `timeout` (xref:partial-results.adoc#timeouts[§11.5]) and `dedup` (xref:deduplication.adoc[§10]). They are addressed as `meta.federation.complete`, `meta.federation.endpoints[]`, and so on.
+The `federation` object carries five members: `complete` (xref:partial-results.adoc#completeness-flag[§11.4]), `endpoints[]` (<<endpoint-meta,§9.5>>), `row_endpoints[]` (<<row-endpoints,§9.5.1>>), `timeout` (xref:partial-results.adoc#timeouts[§11.5]) and `dedup` (xref:deduplication.adoc[§10]). They are addressed as `meta.federation.complete`, `meta.federation.endpoints[]`, and so on.
 
-*Why they are grouped.* Placing all four directly on `meta`, beside openEHR's own members, would also be conformant. Nesting them buys three things:
+*Why they are grouped.* Placing all five directly on `meta`, beside openEHR's own members, would also be conformant. Nesting them buys three things:
 
 * *One namespace, one owner.* A reader of a `meta` object can tell at a glance which members this specification is responsible for: exactly one, and everything reachable through it. A flat layout means knowing the list by heart.
 * *No collision with a future openEHR member.* `ResultSetMetadata` is open and openEHR may add to it. A future `meta.timeout` or `meta.complete` defined by openEHR would silently collide with a federation key of the same name, with no way to tell which document a given value answered to. One member named `federation` cannot collide with an openEHR member unless openEHR picks that name for a federation concept, in which case the collision is a real one worth having.
@@ -34,7 +34,7 @@ The `federation` object carries four members: `complete` (xref:partial-results.a
 *Federation additions to `meta` are never `_`-prefixed, and they live under `federation`.* Two separate rules, both normative:
 
 . The underscore prefix marks the fields openEHR itself defines (`_href`, `_type`, `_schema_version`, `_created`, `_generator`, `_executed_aql`) and is reserved to openEHR. A gateway MUST NOT emit `_complete`, `_endpoints` or `_federation`, and a client MUST NOT expect them. A gateway MAY emit the standard `_`-prefixed fields; this specification neither requires nor forbids them.
-. The federation's own additions MUST be nested under the unprefixed `meta.federation` object. A gateway MUST NOT emit `complete`, `endpoints`, `timeout` or `dedup` as direct members of `meta`, and a client MUST NOT read them there.
+. The federation's own additions MUST be nested under the unprefixed `meta.federation` object. A gateway MUST NOT emit `complete`, `endpoints`, `row_endpoints`, `timeout` or `dedup` as direct members of `meta`, and a client MUST NOT read them there.
 ====
 
 === Which document governs
@@ -84,6 +84,10 @@ The selectable ENDPOINT attributes are the endpoint/organization provenance fiel
 
 Including `system_id` in the row-level attribute set puts the openEHR-native routing key into the result, so the Application tier can route a follow-up without a second registry lookup (xref:follow-up-routing.adoc[§12]).
 
+[[endpoint-projections-either-form]]ENDPOINT projections are available under either form of the directive (xref:endpoint-directive.adoc#directive-form[§8.1]): with a node list, which also selects the nodes, and without one, which only binds the alias and leaves node selection to localization. Single-CDR compatibility is unchanged: a query that projects no ENDPOINT attribute gets no endpoint columns (xref:requirements.adoc#n17[N17]).
+
+*Which carrier to use.* Every AQL response attributes each row to its endpoints in `meta.federation.row_endpoints[]` (<<row-endpoints,§9.5.1>>), so a client that needs to know where a row came from, for a follow-up or an audit, needs no projection. ENDPOINT projections are for a label that must be a named column of the row itself, for example an export, or `organisation` shown beside the clinical values.
+
 [#example]
 == 9.4 Example
 
@@ -112,7 +116,8 @@ Including `system_id` in the row-level attribute set puts the openEHR-native rou
           "latency_ms": 306, "product": "VendorY", "version": "2026.1", "row_count": 1 },
         { "id": "node_3", "node_id": "node_3", "organisation": "Org C",
           "status": "excluded" }
-      ]
+      ],
+      "row_endpoints": [ ["node_1"], ["node_2"] ]
     }
   }
 }
@@ -126,7 +131,9 @@ Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `cre
 
 `node_3` shows a reported-but-not-queried member. This query was directed at `node_1` and `node_2`, so the directive excluded it, and the gateway reports it as §11.1 says it SHOULD (xref:partial-results.adoc#endpoint-status[§11.1]). Had the query been undirected and localization simply not named it, its status would be `not-localized` instead. Neither clears `meta.federation.complete`, which is `true` here because every node that was in scope answered.
 
-Note also that the four federation members sit inside a single `federation` object and not directly on `meta` (<<federation-meta,§9.1>>). A gateway emitting `meta.complete` is not conformant.
+`row_endpoints` attributes `rows[0]` to `node_1` and `rows[1]` to `node_2`. Here it repeats what the `endpoint_id` column already says, because this query projects it; a query without that projection gets the same `row_endpoints` and no `endpoint_id` column.
+
+Note also that the federation members sit inside a single `federation` object and not directly on `meta` (<<federation-meta,§9.1>>). A gateway emitting `meta.complete` is not conformant.
 
 [#endpoint-meta]
 == 9.5 `meta.federation.endpoints[]` fields
@@ -180,9 +187,23 @@ The obligation follows dispatch, not scope. It is required for `active`, `offlin
 | The CDR base URL. MAY be omitted from rows and left here.
 |===
 
-`meta.federation` itself MUST additionally carry `complete` (xref:partial-results.adoc#completeness-flag[§11.4]) and SHOULD carry the effective timeout budget in force for the request (xref:partial-results.adoc#timeouts[§11.5]).
+`meta.federation` itself MUST additionally carry `complete` (xref:partial-results.adoc#completeness-flag[§11.4]) and `row_endpoints[]` (<<row-endpoints,§9.5.1>>), and SHOULD carry the effective timeout budget in force for the request (xref:partial-results.adoc#timeouts[§11.5]).
 
 Why xref:result-set.adoc#meta-latency[latency] and xref:result-set.adoc#meta-version[version] belong here: a federated query is only as good as its slowest and its oldest member, and an operator debugging *"why is this slow"* or *"why does node 3 not support this AQL feature"* would otherwise have to correlate gateway logs by hand. The same fields appear in `+OPTIONS {base}/+` (xref:rest-facade.adoc#options-root[§7a.2]), with `product` and `version` as the same two separate fields and latency as an aggregate over recent requests; there it is not a single request's measurement.
+
+[#row-endpoints]
+=== 9.5.1 `meta.federation.row_endpoints[]`: per-row attribution
+
+`meta.federation.endpoints[]` records what happened at each node, including how many rows it contributed, but it does not say which row came from which node. `row_endpoints[]` does, for every row, without changing the rows.
+
+* [[row-endpoints-aligned]]`meta.federation` MUST carry `row_endpoints[]` on every AQL response. It MUST have exactly as many entries as `rows`, and `row_endpoints[i]` attributes `rows[i]`. A response with no rows carries `[]`, including a failing `504` or `424` (xref:partial-results.adoc#failure-carries-envelope[§11.4]). _(xref:requirements.adoc#n45[N45].)_
+* Every entry is a non-empty array of `endpoint_id` s, so a client handles one type: a row from a single endpoint is `["node_1"]`. A row built from several endpoints lists every contributing endpoint once, in the order of `meta.federation.endpoints[]`. That covers a row produced by federation-level `DISTINCT`, a group merged across nodes, and a decomposed aggregate (xref:partial-results.adoc#aggregation-and-ordering[§11.6.3]). _(xref:requirements.adoc#n45[N45].)_
+* After de-duplication (xref:deduplication.adoc[§10]) the entry names the endpoint of the surviving copy. The endpoints whose copies were suppressed stay in `meta.federation.dedup.suppressed_endpoints[]` and are not added to the entry.
+* The list is aligned with the rows actually returned, after the gateway has re-applied `ORDER BY` and `LIMIT` across nodes (xref:partial-results.adoc#limit-reorder[§11.6.1]). `row_count` in `endpoints[]` counts what an endpoint contributed before `DISTINCT`, dedup and `LIMIT`; `row_endpoints[]` attributes what was returned.
+* Values are `endpoint_id` s only, in the same namespace as `endpoints[].id` (xref:requirements.adoc#n32[N32]), and every value MUST appear as an `id` in `meta.federation.endpoints[]`. A client finds the `organisation`, `system_id` and `node_id` of a row there.
+* The rows themselves are unchanged. Endpoint labels appear in `rows` only when the query projects ENDPOINT attributes (xref:requirements.adoc#n17[N17]), because a column added by default would shift every positional row a single-CDR client reads, and could not label a row that several endpoints produced. The transparency claim of xref:requirements.adoc#n1[N1] is therefore untouched.
+
+JSON Schema cannot express that two arrays have equal length, so `federated-result-set.schema.json` constrains the shape of `row_endpoints[]` and `tools/check-schemas.sh` checks the length and the `endpoints[]` membership on this page's example.
 
 [#response-headers]
 == 9.6 Responses with no envelope: headers

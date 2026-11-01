@@ -194,6 +194,7 @@ A federated `LIMIT n` cannot be pushed down as `LIMIT n` and then concatenated. 
 
 * [[limit-reorder]]For a query with `ORDER BY` and `LIMIT n` and no `OFFSET`, the gateway MUST dispatch `LIMIT n` to each node, then apply the `ORDER BY` across the merged rows, and finally apply `LIMIT n` to the merged, re-ordered set. Dispatching `n` per node makes this correct, because under a total order the global top `n` is necessarily contained in the union of the per-node top `n`. _(xref:requirements.adoc#n39[N39].)_
 * The gateway MUST apply `ORDER BY` at the Tier whenever more than one node contributed rows, even if it also pushed it down (xref:requirements.adoc#n13[N13]). Pushing down is an optimisation; the merge at the Tier produces the true order.
+* `meta.federation.row_endpoints[]` (xref:result-set.adoc#row-endpoints[§9.5.1]) is aligned with the rows after this re-ordering and truncation, and never with a node's own row set.
 * Ordering MUST be deterministic. Where the `ORDER BY` keys tie, the gateway MUST break the tie on a stable secondary key (RECOMMENDED: `endpoint_id`, then uid), so repeating a query returns rows in the same order.
 
 === 11.6.2 `OFFSET` - not correct across nodes
