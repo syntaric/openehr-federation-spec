@@ -7,7 +7,7 @@
 [NOTE]
 .Editorial note
 ====
-This specification was approved by the openEHR Specifications Editorial Committee (SEC) at its meeting of 2026-10-12 and is published as release 1.0.0. Comments remain welcome and are taken up in a later release.
+This specification was approved by the openEHR Specifications Editorial Committee (SEC) at its meeting of 2026-10-12 and published as release 1.0.0. Release 1.0.1 is an erratum to the routing of EHR-scoped version requests: the path `ehr_id` locates the node, and `creating_system_id` is a later routing step and the control test for writes (xref:follow-up-routing.adoc#ehr-id-route-order[§12.5.1]), so a 1.0.0 gateway that routed version reads on `creating_system_id` needs to change. Comments remain welcome and are taken up in a later release.
 ====
 
 == Referenced documents

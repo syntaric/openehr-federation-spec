@@ -122,7 +122,7 @@ Including `system_id` in the row-level attribute set puts the openEHR-native rou
 
 Positional rows make the `columns[]` provenance rule of <<columns-provenance>> more load-bearing. A client matching an `ORDER BY` term or a projection against the result now depends on column order as well as path shape. If two nodes disagree on a path, the gateway's single rendering makes position *i* mean the same thing in every row; a gateway echoing a node's rendering would make the meaning of a row position depend on which node replied first.
 
-Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`), which xref:follow-up-routing.adoc[§12] routes on.
+Each `composition_id` is an `OBJECT_VERSION_ID` whose middle segment is the `creating_system_id` (`cdr1.rso.nl`, `cdr2.rso.nl`), which names the owning system for follow-ups (xref:follow-up-routing.adoc[§12]).
 
 `node_3` shows a reported-but-not-queried member. This query was directed at `node_1` and `node_2`, so the directive excluded it, and the gateway reports it as §11.1 says it SHOULD (xref:partial-results.adoc#endpoint-status[§11.1]). Had the query been undirected and localization simply not named it, its status would be `not-localized` instead. Neither clears `meta.federation.complete`, which is `true` here because every node that was in scope answered.
 
