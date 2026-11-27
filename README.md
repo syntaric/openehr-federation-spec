@@ -8,8 +8,8 @@ a regional alternative), and each node then receives **standard, non-federated A
 scoped to its resolved `ehr_id`. The gateway is a transparent façade: a client never
 needs federation-specific syntax to run a basic patient query.
 
-> **Status: draft for SEC review, v1.1.0.** Release 1.0.0 was approved by the
-> openEHR Specifications Editorial Committee (SEC) at its meeting of 2026-10-12. It had
+> **Status: approved, v1.1.0.** The specification was approved by the openEHR
+> Specifications Editorial Committee (SEC) at its meeting of 2026-10-12. It had
 > been validated by a working
 > [reference implementation](https://github.com/syntaric/openehr-federation-ref)
 > and amended in the SEC review that preceded approval. Release 1.0.1 is an

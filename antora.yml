@@ -10,5 +10,5 @@ nav:
 asciidoc:
   attributes:
     spec-version: '1.1.0'
-    spec-status: 'Draft for SEC review'
+    spec-status: 'Approved by the openEHR SEC'
     spec-date: '2026-11-01'
